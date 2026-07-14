@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const prisma = require('../utils/prisma');
+const userService = require('../services/userService');
 const { hashPassword } = require('../utils/auth');
 const { validate, registerSchema } = require('../middleware/validate');
 
@@ -15,9 +15,7 @@ router.post('/register', validate(registerSchema), async (req, res, next) => {
 
   try {
     // 1. Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
+    const existingUser = await userService.findUserByEmail(email);
 
     if (existingUser) {
       return res.status(400).json({
@@ -30,16 +28,9 @@ router.post('/register', validate(registerSchema), async (req, res, next) => {
     const passwordHash = await hashPassword(password);
 
     // 3. Create user in database
-    const newUser = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-      },
-      select: {
-        id: true,
-        email: true,
-        createdAt: true,
-      },
+    const newUser = await userService.createUser({
+      email,
+      passwordHash,
     });
 
     // 4. Generate JWT
