@@ -2,8 +2,8 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const userService = require('../services/userService');
-const { hashPassword } = require('../utils/auth');
-const { validate, registerSchema } = require('../middleware/validate');
+const { hashPassword, verifyPassword } = require('../utils/auth');
+const { validate, registerSchema, loginSchema } = require('../middleware/validate');
 
 /**
  * @route POST /api/auth/register
@@ -46,6 +46,58 @@ router.post('/register', validate(registerSchema), async (req, res, next) => {
       message: 'User registered successfully',
       data: {
         user: newUser,
+        token,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @route POST /api/auth/login
+ * @desc Login user and return JWT token
+ * @access Public
+ */
+router.post('/login', validate(loginSchema), async (req, res, next) => {
+  const { email, password } = req.body;
+
+  try {
+    // 1. Find user by email
+    const user = await userService.findUserByEmail(email);
+    if (!user) {
+      return res.status(401).json({
+        status: 'fail',
+        message: 'Invalid email or password',
+      });
+    }
+
+    // 2. Verify password
+    const isPasswordValid = await verifyPassword(user.passwordHash, password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        status: 'fail',
+        message: 'Invalid email or password',
+      });
+    }
+
+    // 3. Generate JWT
+    const token = jwt.sign(
+      { id: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    // 4. Send response
+    res.status(200).json({
+      status: 'success',
+      message: 'Login successful',
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          createdAt: user.createdAt,
+        },
         token,
       },
     });
