@@ -4,6 +4,7 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const crypto = require('crypto');
 const r2Client = require('../utils/r2Client');
 const authenticateToken = require('../middleware/authenticateToken');
+const requireScope = require('../middleware/requireScope');
 
 const router = express.Router();
 
@@ -12,7 +13,7 @@ const router = express.Router();
  * @desc Generate a pre-signed URL for client-side direct upload to Cloudflare R2
  * @access Private (Requires JWT Token)
  */
-router.post('/presigned-url', authenticateToken, async (req, res, next) => {
+router.post('/presigned-url', authenticateToken, requireScope('clothing:write'), async (req, res, next) => {
   const { fileType, fileName } = req.body;
 
   if (!fileType) {

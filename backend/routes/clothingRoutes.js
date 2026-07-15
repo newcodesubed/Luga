@@ -4,6 +4,7 @@ const router = express.Router();
 const clothingService = require('../services/clothingService');
 const r2Client = require('../utils/r2Client');
 const authenticateToken = require('../middleware/authenticateToken');
+const requireScope = require('../middleware/requireScope');
 const { validate, clothingItemSchema } = require('../middleware/validate');
 
 /**
@@ -44,7 +45,7 @@ function checkImageMagicNumbers(buffer) {
  * @desc Create/save a new clothing item
  * @access Private
  */
-router.post('/', authenticateToken, validate(clothingItemSchema), async (req, res, next) => {
+router.post('/', authenticateToken, requireScope('clothing:write'), validate(clothingItemSchema), async (req, res, next) => {
   const { imageUrl, key, category, subCategory, primaryColor, aiDescription } = req.body;
 
   try {
@@ -112,7 +113,7 @@ router.post('/', authenticateToken, validate(clothingItemSchema), async (req, re
  * @desc Get all clothing items for the logged-in user
  * @access Private
  */
-router.get('/', authenticateToken, async (req, res, next) => {
+router.get('/', authenticateToken, requireScope('clothing:read'), async (req, res, next) => {
   try {
     const items = await clothingService.getClothingItemsByUser(req.user.id);
     
@@ -131,7 +132,7 @@ router.get('/', authenticateToken, async (req, res, next) => {
  * @desc Get a single clothing item by ID
  * @access Private
  */
-router.get('/:id', authenticateToken, async (req, res, next) => {
+router.get('/:id', authenticateToken, requireScope('clothing:read'), async (req, res, next) => {
   try {
     const item = await clothingService.getClothingItemById(req.params.id, req.user.id);
     
@@ -156,7 +157,7 @@ router.get('/:id', authenticateToken, async (req, res, next) => {
  * @desc Delete a clothing item by ID
  * @access Private
  */
-router.delete('/:id', authenticateToken, async (req, res, next) => {
+router.delete('/:id', authenticateToken, requireScope('clothing:write'), async (req, res, next) => {
   try {
     const item = await clothingService.getClothingItemById(req.params.id, req.user.id);
     

@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const context = require('../utils/context');
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -11,7 +12,11 @@ function authenticateToken(req, res, next) {
     
     // Attach the verified user payload to the request object
     req.user = user; 
-    next();
+    
+    // Run all downstream operations (including DB calls) inside user/tenant scope context
+    context.run({ userId: user.id, scopes: user.scopes || [] }, () => {
+      next();
+    });
   });
 }
 

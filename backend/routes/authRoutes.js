@@ -35,7 +35,11 @@ router.post('/register', validate(registerSchema), async (req, res, next) => {
 
     // 4. Generate JWT
     const token = jwt.sign(
-      { id: newUser.id, email: newUser.email },
+      { 
+        id: newUser.id, 
+        email: newUser.email,
+        scopes: ['clothing:read', 'clothing:write', 'outfit:read', 'outfit:write']
+      },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -83,7 +87,11 @@ router.post('/login', validate(loginSchema), async (req, res, next) => {
 
     // 3. Generate JWT
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { 
+        id: user.id, 
+        email: user.email,
+        scopes: ['clothing:read', 'clothing:write', 'outfit:read', 'outfit:write']
+      },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
