@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const userService = require('../services/userService');
-const { hashPassword, verifyPassword } = require('../utils/auth');
+const { hashPassword, verifyPassword } = require('../utils/password');
 const { validate, registerSchema, loginSchema } = require('../middleware/validate');
 
 /**
