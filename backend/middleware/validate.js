@@ -40,6 +40,7 @@ const loginSchema = z.object({
 
 const clothingItemSchema = z.object({
   imageUrl: z.string().url({ message: 'Invalid image URL' }),
+  key: z.string().min(1, { message: 'Storage key is required' }),
   category: z.string().min(1, { message: 'Category is required' }),
   subCategory: z.string().optional().nullable(),
   primaryColor: z.string().min(1, { message: 'Primary color is required' }),
