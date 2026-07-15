@@ -1,6 +1,8 @@
 const express = require('express');
 require('dotenv').config();
 const authRoutes = require('./routes/authRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const clothingRoutes = require('./routes/clothingRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -8,8 +10,10 @@ const PORT = process.env.PORT || 5000;
 // Middleware to parse JSON request bodies
 app.use(express.json());
 
-// Main authentication routes
+// Main routes
 app.use('/api/auth', authRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/clothing', clothingRoutes);
 
 // Simple health check endpoint
 app.get('/health', (req, res) => {
