@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import UploadModal from './UploadModal';
 
 const CATEGORIES = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories'];
 
@@ -8,6 +9,7 @@ export default function Dashboard() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -76,7 +78,10 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-xs font-semibold rounded-xl shadow-md transition-all active:scale-95 cursor-pointer">
+          <button
+            onClick={() => setIsUploadOpen(true)}
+            className="px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-xs font-semibold rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
+          >
             + Add Item
           </button>
           <button
@@ -142,7 +147,10 @@ export default function Dashboard() {
                 Your wardrobe is a curated collection. Start uploading your favorite pieces to assemble a visually balanced and organized digital library.
               </p>
             </div>
-            <button className="px-5 py-2.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-xs font-semibold rounded-xl text-slate-300 transition-all active:scale-95 cursor-pointer">
+            <button
+              onClick={() => setIsUploadOpen(true)}
+              className="px-5 py-2.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-xs font-semibold rounded-xl text-slate-300 transition-all active:scale-95 cursor-pointer"
+            >
               Add Your First Piece
             </button>
           </div>
@@ -195,6 +203,12 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+
+      <UploadModal
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        onUploadSuccess={() => fetchItems(localStorage.getItem('token'))}
+      />
     </div>
   );
 }
