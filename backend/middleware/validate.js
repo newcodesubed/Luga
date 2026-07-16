@@ -47,6 +47,13 @@ const clothingItemSchema = z.object({
   aiDescription: z.string().optional().nullable(),
 });
 
+const updateClothingItemSchema = z.object({
+  category: z.string().min(1, { message: 'Category is required' }),
+  subCategory: z.string().optional().nullable(),
+  primaryColor: z.string().min(1, { message: 'Primary color is required' }),
+  aiDescription: z.string().optional().nullable(),
+});
+
 const outfitSchema = z.object({
   name: z.string().min(1, { message: 'Outfit name is required' }),
   occasion: z.string().min(1, { message: 'Occasion is required' }),
@@ -60,5 +67,6 @@ module.exports = {
   registerSchema,
   loginSchema,
   clothingItemSchema,
+  updateClothingItemSchema,
   outfitSchema,
 };

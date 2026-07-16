@@ -54,9 +54,29 @@ async function deleteClothingItem(id, userId) {
   });
 }
 
+/**
+ * Update an existing clothing item by ID.
+ * @param {string} id 
+ * @param {string} userId 
+ * @param {object} updateData 
+ * @returns {Promise<object>}
+ */
+async function updateClothingItem(id, userId, { category, subCategory, primaryColor, aiDescription }) {
+  return await prisma.clothingItem.update({
+    where: { id, userId },
+    data: {
+      category,
+      subCategory: subCategory !== undefined ? subCategory : undefined,
+      primaryColor,
+      aiDescription: aiDescription !== undefined ? aiDescription : undefined,
+    },
+  });
+}
+
 module.exports = {
   createClothingItem,
   getClothingItemsByUser,
   getClothingItemById,
   deleteClothingItem,
+  updateClothingItem,
 };

@@ -5,7 +5,7 @@ const clothingService = require('../services/clothingService');
 const r2Client = require('../utils/r2Client');
 const authenticateToken = require('../middleware/authenticateToken');
 const requireScope = require('../middleware/requireScope');
-const { validate, clothingItemSchema } = require('../middleware/validate');
+const { validate, clothingItemSchema, updateClothingItemSchema } = require('../middleware/validate');
 
 /**
  * Checks the magic numbers of a buffer to verify if it matches a valid image type.
@@ -173,6 +173,34 @@ router.delete('/:id', authenticateToken, requireScope('clothing:write'), async (
     res.status(200).json({
       status: 'success',
       message: 'Clothing item deleted successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @route PUT /api/clothing/:id
+ * @desc Update an existing clothing item's details
+ * @access Private
+ */
+router.put('/:id', authenticateToken, requireScope('clothing:write'), validate(updateClothingItemSchema), async (req, res, next) => {
+  try {
+    const item = await clothingService.getClothingItemById(req.params.id, req.user.id);
+    
+    if (!item) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Clothing item not found or unauthorized',
+      });
+    }
+
+    const updatedItem = await clothingService.updateClothingItem(req.params.id, req.user.id, req.body);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Clothing item updated successfully',
+      data: updatedItem,
     });
   } catch (error) {
     next(error);

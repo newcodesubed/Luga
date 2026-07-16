@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import UploadModal from './UploadModal';
+import EditModal from './EditModal';
 
 const CATEGORIES = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories'];
 
@@ -10,6 +11,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -161,7 +164,8 @@ export default function Dashboard() {
             {filteredItems.map(item => (
               <div
                 key={item.id}
-                className="group relative bg-slate-900/20 border border-slate-900/60 rounded-3xl overflow-hidden break-inside-avoid hover:border-slate-800/80 transition-all duration-300 flex flex-col"
+                onClick={() => { setSelectedItem(item); setIsEditOpen(true); }}
+                className="group relative bg-slate-900/20 border border-slate-900/60 rounded-3xl overflow-hidden break-inside-avoid hover:border-slate-800/80 hover:scale-[1.01] hover:shadow-lg transition-all duration-300 flex flex-col cursor-pointer"
               >
                 {/* Lazy loaded image container */}
                 <div className="overflow-hidden bg-slate-950 relative">
@@ -208,6 +212,13 @@ export default function Dashboard() {
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
         onUploadSuccess={() => fetchItems(localStorage.getItem('token'))}
+      />
+
+      <EditModal
+        isOpen={isEditOpen}
+        onClose={() => { setIsEditOpen(false); setSelectedItem(null); }}
+        onSuccess={() => fetchItems(localStorage.getItem('token'))}
+        item={selectedItem}
       />
     </div>
   );
