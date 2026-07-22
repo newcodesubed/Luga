@@ -1,45 +1,54 @@
-const { OpenAI } = require('openai');
+const { GoogleGenAI } = require('@google/genai');
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
 });
 
 /**
- * Analyze an uploaded clothing item image using OpenAI GPT-4o-mini
+ * Analyze an uploaded clothing item image using Gemini 2.5 Flash (free tier)
+ * 
  * @param {string} imageUrl - The public URL of the uploaded image
  * @returns {Promise<{ category: string, subCategory: string, primaryColor: string, aiDescription: string }>}
  */
 async function analyzeClothingImage(imageUrl) {
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      {
-        role: 'system',
-        content: `You are an expert fashion AI assistant. Analyze the clothing item image provided and return structured details.
+  // 1. Fetch image bytes and convert to base64 inlineData
+  const imgResponse = await fetch(imageUrl);
+  const arrayBuffer = await imgResponse.arrayBuffer();
+  const base64Image = Buffer.from(arrayBuffer).toString('base64');
+  const mimeType = imgResponse.headers.get('content-type') || 'image/jpeg';
+
+  const systemPrompt = `You are an expert fashion AI assistant. Analyze the clothing item image provided and return structured details.
 You must return only a JSON object matching this structure:
 {
   "category": "Tops" | "Bottoms" | "Outerwear" | "Shoes" | "Accessories",
   "subCategory": "e.g., T-shirt, Jeans, Sneakers, Jacket",
   "primaryColor": "e.g., #FFFFFF, #FF0000, #0000FF, #333333 (hex format)",
   "aiDescription": "A concise description of the clothing item including pattern, material, style, and fit."
-}`
-      },
+}`;
+
+  // 2. Query Gemini model
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: [
       {
-        role: 'user',
-        content: [
-          { type: 'text', text: 'Analyze this clothing item:' },
-          { type: 'image_url', image_url: { url: imageUrl } }
-        ]
-      }
+        inlineData: {
+          mimeType: mimeType,
+          data: base64Image
+        }
+      },
+      { text: 'Analyze this clothing item.' }
     ],
-    response_format: { type: "json_object" }
+    config: {
+      systemInstruction: systemPrompt,
+      responseMimeType: 'application/json',
+    }
   });
 
   try {
-    return JSON.parse(response.choices[0].message.content);
+    return JSON.parse(response.text);
   } catch (error) {
-    console.error("Failed to parse LLM response:", error);
-    throw new Error("Failed to process image analysis response from AI");
+    console.error("Failed to parse Gemini response:", error);
+    throw new Error("Failed to process image analysis response from Gemini");
   }
 }
 
@@ -49,65 +58,61 @@ You must return only a JSON object matching this structure:
  * 
  * @param {Array} clothingItems - Array of clothing items available in the user's closet
  * @param {string} occasion - The occasion or theme for the outfit (e.g., casual, wedding, business meeting)
+ * @param {string|null} weather - Optional weather conditions (e.g., cold, rainy, hot)
  */
-async function generateOutfitRecommendations(clothingItems, occasion) {
+async function generateOutfitRecommendations(clothingItems, occasion, weather = null) {
   // 1. Serialize and map items to short indices to optimize tokens
   const serializedCloset = clothingItems.map((item, index) => ({
-    idx: index,      // extremely light identifier instead of UUID
+    idx: index,
     c: item.category,
     s: item.subCategory || '',
     col: item.primaryColor,
     d: item.aiDescription || ''
   }));
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      {
-        role: 'system',
-        content: `You are a professional personal fashion stylist. 
-Given a list of clothing items in a user's closet (represented by compact JSON), generate 1-3 highly coordinated outfit recommendations for the requested occasion.
-Choose items ONLY from the user's closet.
-Return a JSON object with this exact structure:
+  const systemPrompt = `You are "Luga Stylist", an elite fashion designer and personal wardrobe stylist. 
+Your task is to review the user's available wardrobe inventory and assemble ONE highly coordinated, aesthetically pleasing outfit perfect for the requested occasion and weather.
+
+Strict constraints:
+- You MUST only select items from the user's available closet.
+- Use the item indices ('idx' field) to refer to selected items.
+- Ensure the selection is cohesive (e.g. usually include at least one Top and one Bottom, or a dress, and appropriate shoes). Do not recommend mismatched colors or conflicting styles.
+- You must output valid JSON matching this schema precisely:
 {
-  "outfits": [
-    {
-      "name": "Outfit Name",
-      "occasion": "Occasion Name",
-      "clothingItemIdxs": [0, 2, ...], // Use the 'idx' field from the input list
-      "stylistNotes": "Notes explaining why these items match."
+  "outfitName": "A catchy, stylish name for the look",
+  "rationale": "Detailed explanation of why these items work together for the occasion and weather",
+  "selectedIdxs": [0, 2, ...] // Array of selected clothing indices matching the 'idx' field
+}`;
+
+  const userPrompt = `Occasion: ${occasion}
+Weather Condition: ${weather || 'Any/Normal'}
+Available Wardrobe Inventory JSON: ${JSON.stringify(serializedCloset)}`;
+
+  // 2. Query Gemini model
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: [{ text: userPrompt }],
+    config: {
+      systemInstruction: systemPrompt,
+      responseMimeType: 'application/json',
     }
-  ]
-}`
-      },
-      {
-        role: 'user',
-        content: `Closet items: ${JSON.stringify(serializedCloset)}\nOccasion: ${occasion}`
-      }
-    ],
-    response_format: { type: "json_object" }
   });
 
   try {
-    const result = JSON.parse(response.choices[0].message.content);
+    const result = JSON.parse(response.text);
     
-    // 2. Map the indices back to the original database UUIDs safely
-    const outfits = result.outfits.map(outfit => {
-      const clothingItemIds = outfit.clothingItemIdxs
-        .map(idx => clothingItems[idx]?.id)
-        .filter(Boolean); // Filter out any invalid indices returned by the LLM
-        
-      return {
-        name: outfit.name,
-        occasion: outfit.occasion,
-        clothingItemIds,
-        stylistNotes: outfit.stylistNotes
-      };
-    });
+    // 3. Map selected indices back to original database UUIDs safely
+    const clothingItemIds = result.selectedIdxs
+      .map(idx => clothingItems[idx]?.id)
+      .filter(Boolean);
 
-    return { outfits };
+    return {
+      outfitName: result.outfitName,
+      rationale: result.rationale,
+      clothingItemIds
+    };
   } catch (error) {
-    console.error("Failed to parse LLM outfit response:", error);
+    console.error("Failed to parse Gemini outfit response:", error);
     throw new Error("Failed to generate outfit recommendation");
   }
 }
