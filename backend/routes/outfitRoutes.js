@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../utils/prisma');
 const { z } = require('zod');
-const { validate } = require('../middleware/validate');
+const { validate, outfitSchema } = require('../middleware/validate');
 const authenticateToken = require('../middleware/authenticateToken');
 const requireScope = require('../middleware/requireScope');
 const llmService = require('../services/llmService');
@@ -14,7 +14,7 @@ const generateOutfitSchema = z.object({
 
 /**
  * @route POST /api/outfits/generate
- * @desc Generate an AI-recommended outfit and save it to the DB
+ * @desc Generate an AI-recommended outfit preview (does NOT save to DB)
  * @access Private
  */
 router.post('/generate', authenticateToken, requireScope('outfit:write'), validate(generateOutfitSchema), async (req, res, next) => {
@@ -44,18 +44,51 @@ router.post('/generate', authenticateToken, requireScope('outfit:write'), valida
       });
     }
 
-    // 3. Save to outfits & outfit_items tables in transaction
+    // 3. Retrieve full clothing item details from memory for previewing
+    const selectedItems = clothingItems.filter(item => result.clothingItemIds.includes(item.id));
+
+    res.status(200).json({
+      status: 'success',
+      message: 'AI Outfit recommended successfully (preview).',
+      data: {
+        outfitName: result.outfitName,
+        rationale: result.rationale,
+        clothingItemIds: result.clothingItemIds,
+        selectedItems
+      }
+    });
+
+  } catch (error) {
+    console.error("AI Outfit generation failed:", error);
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({ 
+      status: 'error',
+      message: error.message || "The AI agent failed to assemble a look."
+    });
+  }
+});
+
+/**
+ * @route POST /api/outfits
+ * @desc Save a generated outfit to the database
+ * @access Private
+ */
+router.post('/', authenticateToken, requireScope('outfit:write'), validate(outfitSchema), async (req, res, next) => {
+  const { name, occasion, clothingItemIds } = req.body;
+  const userId = req.user.id;
+
+  try {
     const savedOutfit = await prisma.$transaction(async (tx) => {
       const outfit = await tx.outfit.create({
         data: {
           userId,
-          name: result.outfitName,
-          occasion: occasion,
+          name,
+          occasion,
           isAiGenerated: true,
         }
       });
 
-      const outfitItemData = result.clothingItemIds.map(clothingItemId => ({
+      const outfitItemData = clothingItemIds.map(clothingItemId => ({
         outfitId: outfit.id,
         clothingItemId,
       }));
@@ -79,21 +112,11 @@ router.post('/generate', authenticateToken, requireScope('outfit:write'), valida
 
     res.status(201).json({
       status: 'success',
-      message: 'AI Outfit recommended and saved successfully.',
-      data: {
-        outfitName: result.outfitName,
-        rationale: result.rationale,
-        outfit: savedOutfit,
-      }
+      message: 'Outfit saved to lookbook successfully.',
+      data: savedOutfit
     });
-
   } catch (error) {
-    console.error("AI Outfit generation failed:", error);
-    const statusCode = error.statusCode || 500;
-    res.status(statusCode).json({ 
-      status: 'error',
-      message: error.message || "The AI agent failed to assemble a look."
-    });
+    next(error);
   }
 });
 

@@ -7,8 +7,10 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
   const [occasion, setOccasion] = useState('Casual');
   const [weather, setWeather] = useState('Sunny & Warm');
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const [savedSuccess, setSavedSuccess] = useState(false);
 
   if (!isOpen) return null;
 
@@ -17,6 +19,7 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
     setLoading(true);
     setError('');
     setResult(null);
+    setSavedSuccess(false);
 
     try {
       const token = localStorage.getItem('token');
@@ -39,9 +42,6 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
       }
 
       setResult(data.data);
-      if (onGenerationSuccess) {
-        onGenerationSuccess();
-      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -49,9 +49,47 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
     }
   };
 
+  const handleSaveOutfit = async () => {
+    if (!result) return;
+    setSaving(true);
+    setError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/outfits', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: result.outfitName,
+          occasion: occasion,
+          clothingItemIds: result.clothingItemIds,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to save outfit');
+      }
+
+      setSavedSuccess(true);
+      if (onGenerationSuccess) {
+        onGenerationSuccess();
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleReset = () => {
     setResult(null);
     setError('');
+    setSavedSuccess(false);
   };
 
   return (
@@ -73,6 +111,12 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
         {error && (
           <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-xl mb-4">
             {error}
+          </div>
+        )}
+
+        {savedSuccess && (
+          <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs p-3 rounded-xl mb-4">
+            ✓ Outfit saved to your Lookbook successfully!
           </div>
         )}
 
@@ -148,26 +192,26 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
 
             <div>
               <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
-                Selected Wardrobe Pieces
+                Proposed Wardrobe Pieces
               </h5>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {result.outfit.outfitItems.map((item) => (
+                {result.selectedItems.map((clothingItem) => (
                   <div
-                    key={item.clothingItem.id}
+                    key={clothingItem.id}
                     className="bg-slate-950/60 border border-slate-850 rounded-2xl overflow-hidden flex flex-col"
                   >
                     <img
-                      src={item.clothingItem.imageUrl}
-                      alt={item.clothingItem.category}
+                      src={clothingItem.imageUrl}
+                      alt={clothingItem.category}
                       className="h-32 w-full object-cover"
                     />
-                    <div className="p-3 flex flex-col gap-1">
+                    <div className="p-3 flex flex-col gap-1 mt-auto">
                       <span className="text-[10px] uppercase font-mono tracking-wider text-slate-500">
-                        {item.clothingItem.category}
+                        {clothingItem.category}
                       </span>
-                      {item.clothingItem.subCategory && (
+                      {clothingItem.subCategory && (
                         <span className="text-xs font-medium text-slate-350 truncate">
-                          {item.clothingItem.subCategory}
+                          {clothingItem.subCategory}
                         </span>
                       )}
                     </div>
@@ -181,14 +225,27 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
                 onClick={handleReset}
                 className="flex-1 py-3 bg-slate-950 border border-slate-800 text-xs font-semibold rounded-xl text-slate-450 hover:text-slate-200 transition-colors cursor-pointer"
               >
-                Create Another Outfit
+                Create Another
               </button>
-              <button
-                onClick={onClose}
-                className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-xs font-semibold rounded-xl text-slate-100 shadow-md transition-all active:scale-98 cursor-pointer"
-              >
-                Close
-              </button>
+              
+              {!savedSuccess && (
+                <button
+                  onClick={handleSaveOutfit}
+                  disabled={saving}
+                  className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-xs font-semibold rounded-xl text-slate-100 shadow-md transition-all active:scale-98 disabled:opacity-50 cursor-pointer"
+                >
+                  {saving ? 'Saving Look...' : 'Save to Lookbook'}
+                </button>
+              )}
+
+              {savedSuccess && (
+                <button
+                  onClick={onClose}
+                  className="flex-1 py-3 border border-slate-800 hover:bg-slate-900 text-xs font-semibold rounded-xl text-slate-400 transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              )}
             </div>
           </div>
         )}
