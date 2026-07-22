@@ -95,149 +95,163 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Modal Card */}
-      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
-            Style Me (AI Outfit Builder)
-          </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-sm cursor-pointer">
+      {/* Modal Card - Styled for Editorial Luxury */}
+      <div className="relative w-full max-w-3xl bg-[#0F172A] border border-slate-900 rounded-3xl p-8 shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar">
+        <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-900">
+          <div>
+            <span className="text-[9px] uppercase tracking-[0.25em] font-medium text-brand-bronze font-sans block mb-1">Interactive Styling</span>
+            <h3 className="font-serif text-3xl text-brand-cream italic font-normal tracking-wide">
+              Luga Stylist Canvas
+            </h3>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-sm cursor-pointer p-1.5 hover:bg-slate-900 rounded-full transition-all">
             ✕
           </button>
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-xl mb-4">
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] p-4 rounded-xl mb-6">
             {error}
           </div>
         )}
 
         {savedSuccess && (
-          <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs p-3 rounded-xl mb-4">
-            ✓ Outfit saved to your Lookbook successfully!
+          <div className="bg-brand-emerald/10 border border-brand-emerald/20 text-emerald-400 text-[11px] p-4 rounded-xl mb-6">
+            ✓ Outfit saved to your saved lookbooks successfully.
           </div>
         )}
 
-        {!result ? (
+        {loading ? (
+          /* Premium Shimmer Skeleton Loader */
+          <div className="space-y-6 py-4">
+            <div className="h-28 w-full bg-slate-900/60 border border-slate-850 rounded-2xl animate-pulse flex flex-col justify-center px-6">
+              <div className="h-4 bg-slate-800/80 rounded w-1/3 mb-3" />
+              <div className="h-3 bg-slate-800/40 rounded w-2/3" />
+            </div>
+            <div className="grid grid-cols-3 gap-6">
+              {[1, 2, 3].map((_, idx) => (
+                <div key={idx} className="aspect-[3/4] bg-slate-900/40 border border-slate-850 rounded-2xl animate-pulse" />
+              ))}
+            </div>
+          </div>
+        ) : !result ? (
           /* Parameter Input State */
           <form onSubmit={handleGenerate} className="space-y-6">
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Select Occasion
-              </label>
-              <select
-                value={occasion}
-                onChange={(e) => setOccasion(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:border-fuchsia-500 outline-none text-slate-300"
-              >
-                {OCCASIONS.map((occ) => (
-                  <option key={occ} value={occ}>{occ}</option>
-                ))}
-              </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-2">
+                  Select Occasion
+                </label>
+                <select
+                  value={occasion}
+                  onChange={(e) => setOccasion(e.target.value)}
+                  className="w-full bg-[#0A0E1A] border border-slate-900 rounded-xl px-4 py-3 text-xs tracking-wider focus:border-brand-bronze/50 outline-none text-slate-350"
+                >
+                  {OCCASIONS.map((occ) => (
+                    <option key={occ} value={occ}>{occ}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-2">
+                  Weather Forecast
+                </label>
+                <select
+                  value={weather}
+                  onChange={(e) => setWeather(e.target.value)}
+                  className="w-full bg-[#0A0E1A] border border-slate-900 rounded-xl px-4 py-3 text-xs tracking-wider focus:border-brand-bronze/50 outline-none text-slate-350"
+                >
+                  {WEATHERS.map((w) => (
+                    <option key={w} value={w}>{w}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Weather Conditions
-              </label>
-              <select
-                value={weather}
-                onChange={(e) => setWeather(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:border-fuchsia-500 outline-none text-slate-300"
-              >
-                {WEATHERS.map((w) => (
-                  <option key={w} value={w}>{w}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-4 pt-6 border-t border-slate-900">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-3 bg-slate-950 border border-slate-800 text-xs font-semibold rounded-xl text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                className="flex-1 py-3 bg-slate-950 border border-slate-900 text-xs uppercase tracking-widest font-medium rounded-full text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={loading}
-                className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-xs font-semibold rounded-xl text-slate-100 shadow-md transition-all active:scale-98 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 py-3 bg-brand-emerald text-brand-cream hover:bg-[#20362D] text-xs uppercase tracking-widest font-semibold rounded-full shadow-lg transition-all transform hover:-translate-y-0.5 cursor-pointer"
               >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Styling Your Look...
-                  </>
-                ) : (
-                  'Generate Outfit'
-                )}
+                Generate Outfit
               </button>
             </div>
           </form>
         ) : result.noNewCombinations ? (
-          /* No New Combinations State */
-          <div className="space-y-6 text-center py-6">
-            <div className="w-16 h-16 rounded-3xl border border-slate-800 bg-slate-900/30 flex items-center justify-center mx-auto">
-              <span className="text-xl">✨</span>
+          /* No New Combinations Screen */
+          <div className="space-y-6 text-center py-10">
+            <div className="w-14 h-14 rounded-full border border-slate-800 bg-slate-900/20 flex items-center justify-center mx-auto">
+              <span className="text-lg">✨</span>
             </div>
             <div>
-              <h4 className="text-base font-bold text-slate-200">No New Combinations</h4>
-              <p className="text-xs text-slate-500 mt-2 max-w-sm mx-auto leading-relaxed">
+              <h4 className="text-sm font-medium uppercase tracking-widest text-slate-350">Lookbook Exhausted</h4>
+              <p className="text-[11px] text-slate-500 mt-2 max-w-sm mx-auto leading-relaxed font-light">
                 {result.message}
               </p>
             </div>
-            <div className="flex gap-3 pt-4 border-t border-slate-800">
+            <div className="flex gap-4 pt-6 border-t border-slate-900">
               <button
                 onClick={handleReset}
-                className="flex-1 py-3 bg-slate-950 border border-slate-800 text-xs font-semibold rounded-xl text-slate-450 hover:text-slate-200 transition-colors cursor-pointer"
+                className="flex-1 py-3 bg-slate-950 border border-slate-900 text-xs uppercase tracking-widest font-medium rounded-full text-slate-450 hover:text-slate-200 transition-colors cursor-pointer"
               >
-                Try Another Option
+                Change filters
               </button>
               <button
                 onClick={onClose}
-                className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-xs font-semibold rounded-xl text-slate-100 shadow-md transition-all active:scale-98 cursor-pointer"
+                className="flex-1 py-3 bg-brand-bronze text-[#F8FAF9] hover:bg-[#836746] text-xs uppercase tracking-widest font-semibold rounded-full shadow-lg transition-all transform hover:-translate-y-0.5 cursor-pointer"
               >
                 Close
               </button>
             </div>
           </div>
         ) : (
-          /* Output Success State */
-          <div className="space-y-6">
-            <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800">
-              <h4 className="text-lg font-bold text-fuchsia-400">{result.outfitName}</h4>
-              <p className="text-xs text-slate-400 mt-2 italic font-light leading-relaxed">
-                "{result.rationale}"
+          /* Editorial Lookbook Canvas Response */
+          <div className="space-y-8">
+            {/* Hero Header block */}
+            <div className="p-6 rounded-2xl bg-slate-900/10 border border-slate-900/80 flex flex-col gap-2 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-brand-sand/5 rounded-full blur-xl pointer-events-none" />
+              <h4 className="font-serif text-3xl italic text-brand-sand font-normal tracking-wide">{result.outfitName}</h4>
+              <p className="text-xs text-slate-400 leading-relaxed font-light mt-1 max-w-2xl">
+                {result.rationale}
               </p>
             </div>
 
+            {/* Asymmetrical / Carousel Collage Polaroid frame selection */}
             <div>
-              <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
-                Proposed Wardrobe Pieces
-              </h5>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {result.selectedItems.map((clothingItem) => (
+              <span className="block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-4">
+                Recommended Assembled Collage
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+                {result.selectedItems.map((clothingItem, index) => (
                   <div
                     key={clothingItem.id}
-                    className="bg-slate-950/60 border border-slate-850 rounded-2xl overflow-hidden flex flex-col"
+                    className={`bg-slate-950 border border-slate-850/80 p-3 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 flex flex-col transform ${
+                      index % 2 === 1 ? 'translate-y-2' : '' // Subtle asymmetric offset
+                    }`}
                   >
-                    <img
-                      src={clothingItem.imageUrl}
-                      alt={clothingItem.category}
-                      className="h-32 w-full object-cover"
-                    />
-                    <div className="p-3 flex flex-col gap-1 mt-auto">
-                      <span className="text-[10px] uppercase font-mono tracking-wider text-slate-500">
+                    <div className="aspect-[3/4] rounded-xl overflow-hidden bg-[#0C0F18]">
+                      <img
+                        src={clothingItem.imageUrl}
+                        alt={clothingItem.category}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="pt-3 px-1">
+                      <span className="text-[8px] uppercase tracking-widest font-mono text-brand-bronze block">
                         {clothingItem.category}
                       </span>
                       {clothingItem.subCategory && (
-                        <span className="text-xs font-medium text-slate-350 truncate">
+                        <span className="text-xs font-semibold text-slate-200 block truncate mt-0.5">
                           {clothingItem.subCategory}
                         </span>
                       )}
@@ -247,32 +261,51 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
               </div>
             </div>
 
-            <div className="flex gap-3 pt-4 border-t border-slate-800">
-              <button
-                onClick={handleReset}
-                className="flex-1 py-3 bg-slate-950 border border-slate-800 text-xs font-semibold rounded-xl text-slate-450 hover:text-slate-200 transition-colors cursor-pointer"
-              >
-                Create Another
-              </button>
-              
-              {!savedSuccess && (
+            {/* Premium Action Chips Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-slate-900">
+              <div className="flex items-center gap-3">
                 <button
-                  onClick={handleSaveOutfit}
-                  disabled={saving}
-                  className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-xs font-semibold rounded-xl text-slate-100 shadow-md transition-all active:scale-98 disabled:opacity-50 cursor-pointer"
+                  type="button"
+                  className="px-4 py-2 border border-slate-800 hover:bg-slate-900 text-[10px] uppercase tracking-widest font-semibold rounded-full text-slate-400 hover:text-slate-200 cursor-pointer"
                 >
-                  {saving ? 'Saving Look...' : 'Save to Lookbook'}
+                  Swap Item
                 </button>
-              )}
-
-              {savedSuccess && (
                 <button
+                  type="button"
                   onClick={onClose}
-                  className="flex-1 py-3 border border-slate-800 hover:bg-slate-900 text-xs font-semibold rounded-xl text-slate-400 transition-colors cursor-pointer"
+                  className="px-4 py-2 border border-slate-800 hover:bg-slate-900 text-[10px] uppercase tracking-widest font-semibold rounded-full text-slate-400 hover:text-slate-200 cursor-pointer"
                 >
-                  Close
+                  Wear Today
                 </button>
-              )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleReset}
+                  className="px-5 py-2.5 bg-slate-950 border border-slate-900 text-[10px] uppercase tracking-widest font-semibold rounded-full text-slate-450 hover:text-slate-200 transition-colors cursor-pointer"
+                >
+                  Re-Style
+                </button>
+                
+                {!savedSuccess && (
+                  <button
+                    onClick={handleSaveOutfit}
+                    disabled={saving}
+                    className="px-6 py-2.5 bg-brand-emerald text-brand-cream hover:bg-[#20362D] text-[10px] uppercase tracking-widest font-bold rounded-full shadow-lg transition-all transform hover:-translate-y-0.5 disabled:opacity-50 cursor-pointer"
+                  >
+                    {saving ? 'Saving Look...' : 'Save Lookbook'}
+                  </button>
+                )}
+
+                {savedSuccess && (
+                  <button
+                    onClick={onClose}
+                    className="px-6 py-2.5 bg-slate-900 border border-slate-800 text-[10px] uppercase tracking-widest font-semibold rounded-full text-slate-300 transition-colors cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

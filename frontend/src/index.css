@@ -1,1 +1,14 @@
 @import "tailwindcss";
+
+@theme {
+  --font-serif: "Instrument Serif", serif;
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+  --color-brand-emerald: #2D4A3E;
+  --color-brand-bronze: #9A7B56;
+  --color-brand-cream: #F8FAF9;
+  --color-brand-sand: #E2D9D0;
+}
+
+body {
+  font-family: var(--font-sans);
+}
