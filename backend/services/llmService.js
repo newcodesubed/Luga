@@ -1,64 +1,51 @@
 const { GoogleGenAI } = require('@google/genai');
+const { OpenAI } = require('openai');
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+// Read the provider from environment variables (defaults to 'gemini')
+const provider = (process.env.LLM_PROVIDER || 'gemini').toLowerCase();
+
+let geminiClient = null;
+let openaiClient = null;
+
+if (provider === 'gemini') {
+  geminiClient = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+  });
+} else if (provider === 'openai') {
+  openaiClient = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 /**
- * Analyze an uploaded clothing item image using Gemini 2.5 Flash (free tier)
- * 
- * @param {string} imageUrl - The public URL of the uploaded image
- * @returns {Promise<{ category: string, subCategory: string, primaryColor: string, aiDescription: string }>}
+ * Helper to identify and standardize common API errors (rate limits, overload/503s)
  */
-async function analyzeClothingImage(imageUrl) {
-  // 1. Fetch image bytes and convert to base64 inlineData
-  const imgResponse = await fetch(imageUrl);
-  const arrayBuffer = await imgResponse.arrayBuffer();
-  const base64Image = Buffer.from(arrayBuffer).toString('base64');
-  const mimeType = imgResponse.headers.get('content-type') || 'image/jpeg';
-
-  const systemPrompt = `You are an expert fashion AI assistant. Analyze the clothing item image provided and return structured details.
-You must return only a JSON object matching this structure:
-{
-  "category": "Tops" | "Bottoms" | "Outerwear" | "Shoes" | "Accessories",
-  "subCategory": "e.g., T-shirt, Jeans, Sneakers, Jacket",
-  "primaryColor": "e.g., #FFFFFF, #FF0000, #0000FF, #333333 (hex format)",
-  "aiDescription": "A concise description of the clothing item including pattern, material, style, and fit."
-}`;
-
-  // 2. Query Gemini model
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: [
-      {
-        inlineData: {
-          mimeType: mimeType,
-          data: base64Image
-        }
-      },
-      { text: 'Analyze this clothing item.' }
-    ],
-    config: {
-      systemInstruction: systemPrompt,
-      responseMimeType: 'application/json',
-    }
-  });
-
-  try {
-    return JSON.parse(response.text);
-  } catch (error) {
-    console.error("Failed to parse Gemini response:", error);
-    throw new Error("Failed to process image analysis response from Gemini");
+function standardizeError(error) {
+  const errorMessage = error.message || '';
+  
+  // Check if it looks like a Gemini overload or unavailable error
+  if (errorMessage.includes('503') || errorMessage.includes('UNAVAILABLE') || errorMessage.includes('high demand')) {
+    const err = new Error('The styling service is currently experiencing high demand. Please try again in a few moments.');
+    err.statusCode = 503;
+    return err;
   }
+  
+  // Check if it is an OpenAI/Gemini rate limit (429)
+  if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('RateLimit')) {
+    const err = new Error('The service is temporarily busy or rate-limited. Please try again later.');
+    err.statusCode = 429;
+    return err;
+  }
+
+  // Generic fallback
+  const err = new Error('The AI agent failed to assemble a look.');
+  err.statusCode = 500;
+  return err;
 }
 
 /**
  * Generate outfit recommendations based on a user's closet and a given occasion.
- * Uses index-mapped token optimization to keep payloads highly compact.
- * 
- * @param {Array} clothingItems - Array of clothing items available in the user's closet
- * @param {string} occasion - The occasion or theme for the outfit (e.g., casual, wedding, business meeting)
- * @param {string|null} weather - Optional weather conditions (e.g., cold, rainy, hot)
+ * Dynamically switches between Gemini and OpenAI based on the LLM_PROVIDER env variable.
  */
 async function generateOutfitRecommendations(clothingItems, occasion, weather = null) {
   // 1. Serialize and map items to short indices to optimize tokens
@@ -88,20 +75,40 @@ Strict constraints:
 Weather Condition: ${weather || 'Any/Normal'}
 Available Wardrobe Inventory JSON: ${JSON.stringify(serializedCloset)}`;
 
-  // 2. Query Gemini model
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: [{ text: userPrompt }],
-    config: {
-      systemInstruction: systemPrompt,
-      responseMimeType: 'application/json',
-    }
-  });
-
   try {
-    const result = JSON.parse(response.text);
+    let resultJson = '';
+
+    if (provider === 'openai') {
+      if (!openaiClient) throw new Error('OpenAI client is not configured.');
+      
+      const response = await openaiClient.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        response_format: { type: "json_object" }
+      });
+      resultJson = response.choices[0].message.content;
+
+    } else {
+      // Default to Gemini
+      if (!geminiClient) throw new Error('Gemini client is not configured.');
+
+      const response = await geminiClient.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [{ text: userPrompt }],
+        config: {
+          systemInstruction: systemPrompt,
+          responseMimeType: 'application/json',
+        }
+      });
+      resultJson = response.text;
+    }
+
+    const result = JSON.parse(resultJson);
     
-    // 3. Map selected indices back to original database UUIDs safely
+    // Map selected indices back to original database UUIDs safely
     const clothingItemIds = result.selectedIdxs
       .map(idx => clothingItems[idx]?.id)
       .filter(Boolean);
@@ -111,13 +118,13 @@ Available Wardrobe Inventory JSON: ${JSON.stringify(serializedCloset)}`;
       rationale: result.rationale,
       clothingItemIds
     };
+
   } catch (error) {
-    console.error("Failed to parse Gemini outfit response:", error);
-    throw new Error("Failed to generate outfit recommendation");
+    console.error(`LLM Service Error using ${provider.toUpperCase()}:`, error);
+    throw standardizeError(error);
   }
 }
 
 module.exports = {
-  analyzeClothingImage,
   generateOutfitRecommendations
 };

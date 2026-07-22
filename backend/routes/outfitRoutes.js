@@ -89,10 +89,10 @@ router.post('/generate', authenticateToken, requireScope('outfit:write'), valida
 
   } catch (error) {
     console.error("AI Outfit generation failed:", error);
-    res.status(500).json({ 
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({ 
       status: 'error',
-      message: "The AI agent failed to assemble a look.",
-      error: error.message
+      message: error.message || "The AI agent failed to assemble a look."
     });
   }
 });
