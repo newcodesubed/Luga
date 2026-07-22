@@ -6,6 +6,7 @@ const { validate, outfitSchema } = require('../middleware/validate');
 const authenticateToken = require('../middleware/authenticateToken');
 const requireScope = require('../middleware/requireScope');
 const llmService = require('../services/llmService');
+const { generateOutfitLimiter } = require('../middleware/rateLimiter');
 
 const generateOutfitSchema = z.object({
   occasion: z.string().min(1, { message: 'Occasion is required' }),
@@ -17,7 +18,7 @@ const generateOutfitSchema = z.object({
  * @desc Generate an AI-recommended outfit preview (does NOT save to DB)
  * @access Private
  */
-router.post('/generate', authenticateToken, requireScope('outfit:write'), validate(generateOutfitSchema), async (req, res, next) => {
+router.post('/generate', authenticateToken, requireScope('outfit:write'), generateOutfitLimiter, validate(generateOutfitSchema), async (req, res, next) => {
   const { occasion, weather } = req.body;
   const userId = req.user.id;
 
