@@ -44,17 +44,20 @@ You must return only a JSON object matching this structure:
 }
 
 /**
- * Generate outfit recommendations based on a user's closet and a given occasion
+ * Generate outfit recommendations based on a user's closet and a given occasion.
+ * Uses index-mapped token optimization to keep payloads highly compact.
+ * 
  * @param {Array} clothingItems - Array of clothing items available in the user's closet
  * @param {string} occasion - The occasion or theme for the outfit (e.g., casual, wedding, business meeting)
  */
 async function generateOutfitRecommendations(clothingItems, occasion) {
-  const closetSummary = clothingItems.map(item => ({
-    id: item.id,
-    category: item.category,
-    subCategory: item.subCategory,
-    primaryColor: item.primaryColor,
-    aiDescription: item.aiDescription
+  // 1. Serialize and map items to short indices to optimize tokens
+  const serializedCloset = clothingItems.map((item, index) => ({
+    idx: index,      // extremely light identifier instead of UUID
+    c: item.category,
+    s: item.subCategory || '',
+    col: item.primaryColor,
+    d: item.aiDescription || ''
   }));
 
   const response = await openai.chat.completions.create({
@@ -63,30 +66,46 @@ async function generateOutfitRecommendations(clothingItems, occasion) {
       {
         role: 'system',
         content: `You are a professional personal fashion stylist. 
-Given a list of clothing items in a user's closet, generate 1-3 highly coordinated outfit recommendations for the requested occasion.
+Given a list of clothing items in a user's closet (represented by compact JSON), generate 1-3 highly coordinated outfit recommendations for the requested occasion.
 Choose items ONLY from the user's closet.
-You must return a JSON object with this exact structure:
+Return a JSON object with this exact structure:
 {
   "outfits": [
     {
       "name": "Outfit Name",
       "occasion": "Occasion Name",
-      "clothingItemIds": ["id1", "id2", ...],
-      "stylistNotes": "Stylist note explaining why these items go well together for this occasion."
+      "clothingItemIdxs": [0, 2, ...], // Use the 'idx' field from the input list
+      "stylistNotes": "Notes explaining why these items match."
     }
   ]
 }`
       },
       {
         role: 'user',
-        content: `Closet items: ${JSON.stringify(closetSummary)}\nOccasion: ${occasion}`
+        content: `Closet items: ${JSON.stringify(serializedCloset)}\nOccasion: ${occasion}`
       }
     ],
     response_format: { type: "json_object" }
   });
 
   try {
-    return JSON.parse(response.choices[0].message.content);
+    const result = JSON.parse(response.choices[0].message.content);
+    
+    // 2. Map the indices back to the original database UUIDs safely
+    const outfits = result.outfits.map(outfit => {
+      const clothingItemIds = outfit.clothingItemIdxs
+        .map(idx => clothingItems[idx]?.id)
+        .filter(Boolean); // Filter out any invalid indices returned by the LLM
+        
+      return {
+        name: outfit.name,
+        occasion: outfit.occasion,
+        clothingItemIds,
+        stylistNotes: outfit.stylistNotes
+      };
+    });
+
+    return { outfits };
   } catch (error) {
     console.error("Failed to parse LLM outfit response:", error);
     throw new Error("Failed to generate outfit recommendation");
