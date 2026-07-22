@@ -31,6 +31,7 @@ model ClothingItem {
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   outfitItems   OutfitItem[]
 
+  @@index([userId])
   @@index([userId, category]) // Composite Index for fast lookups
   @@map("clothing_items")
 }
@@ -48,6 +49,7 @@ model Outfit {
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   outfitItems   OutfitItem[]
 
+  @@index([userId])
   @@map("outfits")
 }
 
