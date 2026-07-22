@@ -85,6 +85,10 @@ export default function Dashboard() {
     ? items
     : items.filter(item => item.category.toLowerCase() === selectedCategory.toLowerCase());
 
+  const hasTop = items.some(item => item.category.toLowerCase() === 'tops');
+  const hasBottom = items.some(item => item.category.toLowerCase() === 'bottoms');
+  const isStyleMeDisabled = !hasTop || !hasBottom;
+
   if (!user) return null;
 
   return (
@@ -107,8 +111,14 @@ export default function Dashboard() {
 
         <div className="flex items-center gap-3">
           <button
+            disabled={isStyleMeDisabled}
             onClick={() => setIsStyleMeOpen(true)}
-            className="px-4 py-2 bg-slate-900 border border-slate-800 hover:bg-slate-800/80 text-xs font-semibold rounded-xl shadow-md transition-all active:scale-95 text-fuchsia-400 cursor-pointer"
+            title={isStyleMeDisabled ? "Upload at least 1 top and 1 bottom to enable AI generation." : "Generate AI Outfit"}
+            className={`px-4 py-2 text-xs font-semibold rounded-xl shadow-md transition-all active:scale-95 cursor-pointer ${
+              isStyleMeDisabled
+                ? 'opacity-40 cursor-not-allowed bg-slate-900 border border-slate-800 text-slate-500'
+                : 'bg-slate-900 border border-slate-800 hover:bg-slate-800/80 text-fuchsia-400'
+            }`}
           >
             ✨ Style Me
           </button>

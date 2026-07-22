@@ -90,6 +90,24 @@ router.post('/', authenticateToken, requireScope('outfit:write'), validate(outfi
   const userId = req.user.id;
 
   try {
+    // Verify clothingItemIds exist and belong to the authenticated user (prevents hallucinated IDs)
+    const validClothingItems = await prisma.clothingItem.findMany({
+      where: {
+        id: { in: clothingItemIds },
+        userId,
+      },
+      select: { id: true }
+    });
+
+    const verifiedIds = validClothingItems.map(item => item.id);
+
+    if (verifiedIds.length === 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'None of the selected clothing items exist in your wardrobe.'
+      });
+    }
+
     const savedOutfit = await prisma.$transaction(async (tx) => {
       const outfit = await tx.outfit.create({
         data: {
@@ -100,7 +118,7 @@ router.post('/', authenticateToken, requireScope('outfit:write'), validate(outfi
         }
       });
 
-      const outfitItemData = clothingItemIds.map(clothingItemId => ({
+      const outfitItemData = verifiedIds.map(clothingItemId => ({
         outfitId: outfit.id,
         clothingItemId,
       }));
