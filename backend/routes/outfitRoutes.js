@@ -97,4 +97,34 @@ router.post('/generate', authenticateToken, requireScope('outfit:write'), valida
   }
 });
 
+/**
+ * @route GET /api/outfits
+ * @desc Get all saved outfits for the logged-in user
+ * @access Private
+ */
+router.get('/', authenticateToken, requireScope('outfit:read'), async (req, res, next) => {
+  const userId = req.user.id;
+  try {
+    const outfits = await prisma.outfit.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        outfitItems: {
+          include: {
+            clothingItem: true,
+          }
+        }
+      }
+    });
+
+    res.status(200).json({
+      status: 'success',
+      results: outfits.length,
+      data: outfits,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
