@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import UploadModal from './UploadModal';
 import EditModal from './EditModal';
+import StyleMeModal from './StyleMeModal';
 
 const CATEGORIES = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories'];
 
@@ -13,6 +14,7 @@ export default function Dashboard() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isStyleMeOpen, setIsStyleMeOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -81,6 +83,12 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsStyleMeOpen(true)}
+            className="px-4 py-2 bg-slate-900 border border-slate-800 hover:bg-slate-800/80 text-xs font-semibold rounded-xl shadow-md transition-all active:scale-95 text-fuchsia-400 cursor-pointer"
+          >
+            ✨ Style Me
+          </button>
           <button
             onClick={() => setIsUploadOpen(true)}
             className="px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-xs font-semibold rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
@@ -219,6 +227,12 @@ export default function Dashboard() {
         onClose={() => { setIsEditOpen(false); setSelectedItem(null); }}
         onSuccess={() => fetchItems(localStorage.getItem('token'))}
         item={selectedItem}
+      />
+
+      <StyleMeModal
+        isOpen={isStyleMeOpen}
+        onClose={() => setIsStyleMeOpen(false)}
+        onGenerationSuccess={() => fetchItems(localStorage.getItem('token'))}
       />
     </div>
   );
