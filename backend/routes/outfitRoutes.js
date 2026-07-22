@@ -37,6 +37,17 @@ router.post('/generate', authenticateToken, requireScope('outfit:write'), valida
     // 2. Call LLM Service using Gemini
     const result = await llmService.generateOutfitRecommendations(clothingItems, occasion, weather);
 
+    if (result.noNewCombinations) {
+      return res.status(200).json({
+        status: 'success',
+        message: result.message,
+        data: {
+          noNewCombinations: true,
+          message: result.message
+        }
+      });
+    }
+
     if (!result.clothingItemIds || result.clothingItemIds.length === 0) {
       return res.status(422).json({
         status: 'fail',

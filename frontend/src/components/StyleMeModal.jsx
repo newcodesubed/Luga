@@ -180,6 +180,33 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
               </button>
             </div>
           </form>
+        ) : result.noNewCombinations ? (
+          /* No New Combinations State */
+          <div className="space-y-6 text-center py-6">
+            <div className="w-16 h-16 rounded-3xl border border-slate-800 bg-slate-900/30 flex items-center justify-center mx-auto">
+              <span className="text-xl">✨</span>
+            </div>
+            <div>
+              <h4 className="text-base font-bold text-slate-200">No New Combinations</h4>
+              <p className="text-xs text-slate-500 mt-2 max-w-sm mx-auto leading-relaxed">
+                {result.message}
+              </p>
+            </div>
+            <div className="flex gap-3 pt-4 border-t border-slate-800">
+              <button
+                onClick={handleReset}
+                className="flex-1 py-3 bg-slate-950 border border-slate-800 text-xs font-semibold rounded-xl text-slate-450 hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                Try Another Option
+              </button>
+              <button
+                onClick={onClose}
+                className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-xs font-semibold rounded-xl text-slate-100 shadow-md transition-all active:scale-98 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         ) : (
           /* Output Success State */
           <div className="space-y-6">
