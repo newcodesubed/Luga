@@ -22,7 +22,13 @@ export default function Dashboard() {
   const [loadingOutfits, setLoadingOutfits] = useState(false);
   const [selectedOutfit, setSelectedOutfit] = useState(null);
   const [isEditOutfitOpen, setIsEditOutfitOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
   const navigate = useNavigate();
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -102,7 +108,7 @@ export default function Dashboard() {
       });
 
       if (res.ok) {
-        alert("Outfit logged as today's outfit in your calendar!");
+        showToast("✓ Outfit logged as today's outfit in your calendar!");
       }
     } catch (err) {
       console.error('Error logging outfit today:', err);
@@ -436,6 +442,14 @@ export default function Dashboard() {
         outfit={selectedOutfit}
         closetItems={items}
       />
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-8 right-8 z-50 bg-[#0F172A] border border-brand-emerald/40 text-emerald-400 text-xs px-5 py-3.5 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-3 animate-fade-in border-slate-850">
+          <span className="w-2 h-2 rounded-full bg-brand-emerald animate-pulse" />
+          <span className="font-medium tracking-wide">{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 }
