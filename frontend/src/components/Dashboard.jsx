@@ -46,8 +46,8 @@ export default function Dashboard() {
     fetchOutfits(token);
   }, [navigate]);
 
-  const fetchOutfits = async (token) => {
-    setLoadingOutfits(true);
+  const fetchOutfits = async (token, isSilent = false) => {
+    if (!isSilent) setLoadingOutfits(true);
     try {
       const res = await fetch('http://localhost:5000/api/outfits', {
         headers: {
@@ -61,12 +61,12 @@ export default function Dashboard() {
     } catch (err) {
       console.error('Error fetching outfits:', err);
     } finally {
-      setLoadingOutfits(false);
+      if (!isSilent) setLoadingOutfits(false);
     }
   };
 
-  const fetchItems = async (token) => {
-    setLoading(true);
+  const fetchItems = async (token, isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const res = await fetch('http://localhost:5000/api/clothing', {
         headers: {
@@ -80,7 +80,7 @@ export default function Dashboard() {
     } catch (err) {
       console.error('Error fetching clothing items:', err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -91,10 +91,22 @@ export default function Dashboard() {
   };
 
   const handleWearOutfitToday = async (outfitId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const todayStr = new Date().toISOString().split('T')[0];
+    const token = localStorage.getItem('token');
+    const todayStr = new Date().toISOString().split('T')[0];
 
+    // 1. Instant Optimistic UI Update (0ms delay, no skeleton flash)
+    setOutfits(prev => prev.map(o => o.id === outfitId ? { ...o, wearCount: (o.wearCount || 0) + 1, lastWornAt: todayStr } : o));
+
+    const targetOutfit = outfits.find(o => o.id === outfitId);
+    if (targetOutfit && targetOutfit.outfitItems) {
+      const wornIds = targetOutfit.outfitItems.map(oi => oi.clothingItem.id);
+      setItems(prev => prev.map(item => wornIds.includes(item.id) ? { ...item, wearCount: (item.wearCount || 0) + 1, lastWornAt: todayStr } : item));
+    }
+
+    showToast("✓ Outfit logged as today's outfit in your calendar!");
+
+    // 2. Silent API Sync in background
+    try {
       const res = await fetch('http://localhost:5000/api/calendar', {
         method: 'POST',
         headers: {
@@ -108,9 +120,8 @@ export default function Dashboard() {
       });
 
       if (res.ok) {
-        showToast("✓ Outfit logged as today's outfit in your calendar!");
-        fetchItems(token);
-        fetchOutfits(token);
+        fetchItems(token, true);
+        fetchOutfits(token, true);
       }
     } catch (err) {
       console.error('Error logging outfit today:', err);
@@ -435,13 +446,13 @@ export default function Dashboard() {
       <UploadModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
-        onUploadSuccess={() => fetchItems(localStorage.getItem('token'))}
+        onUploadSuccess={() => fetchItems(localStorage.getItem('token'), true)}
       />
 
       <EditModal
         isOpen={isEditOpen}
         onClose={() => { setIsEditOpen(false); setSelectedItem(null); }}
-        onSuccess={() => fetchItems(localStorage.getItem('token'))}
+        onSuccess={() => fetchItems(localStorage.getItem('token'), true)}
         item={selectedItem}
       />
 
@@ -451,15 +462,15 @@ export default function Dashboard() {
         closetItems={items}
         onGenerationSuccess={() => {
           const token = localStorage.getItem('token');
-          fetchItems(token);
-          fetchOutfits(token);
+          fetchItems(token, true);
+          fetchOutfits(token, true);
         }}
       />
 
       <EditOutfitModal
         isOpen={isEditOutfitOpen}
         onClose={() => { setIsEditOutfitOpen(false); setSelectedOutfit(null); }}
-        onSuccess={() => fetchOutfits(localStorage.getItem('token'))}
+        onSuccess={() => fetchOutfits(localStorage.getItem('token'), true)}
         outfit={selectedOutfit}
         closetItems={items}
       />
