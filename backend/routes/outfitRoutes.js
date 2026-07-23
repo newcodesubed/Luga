@@ -180,4 +180,126 @@ router.get('/', authenticateToken, requireScope('outfit:read'), async (req, res,
   }
 });
 
+/**
+ * @route DELETE /api/outfits/:id
+ * @desc Delete a saved outfit by ID
+ * @access Private
+ */
+router.delete('/:id', authenticateToken, requireScope('outfit:write'), async (req, res, next) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const outfit = await prisma.outfit.findFirst({
+      where: { id, userId },
+    });
+
+    if (!outfit) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Outfit not found or unauthorized',
+      });
+    }
+
+    await prisma.outfit.delete({
+      where: { id },
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Outfit deleted successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @route PUT /api/outfits/:id
+ * @desc Update an existing saved outfit (name, occasion, clothing items)
+ * @access Private
+ */
+router.put('/:id', authenticateToken, requireScope('outfit:write'), validate(outfitSchema), async (req, res, next) => {
+  const { id } = req.params;
+  const { name, occasion, clothingItemIds } = req.body;
+  const userId = req.user.id;
+
+  try {
+    const existingOutfit = await prisma.outfit.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existingOutfit) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Outfit not found or unauthorized',
+      });
+    }
+
+    // Verify clothingItemIds exist and belong to the authenticated user
+    const validClothingItems = await prisma.clothingItem.findMany({
+      where: {
+        id: { in: clothingItemIds },
+        userId,
+      },
+      select: { id: true }
+    });
+
+    const verifiedIds = validClothingItems.map(item => item.id);
+
+    if (verifiedIds.length === 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'None of the selected clothing items exist in your wardrobe.'
+      });
+    }
+
+    const updatedOutfit = await prisma.$transaction(async (tx) => {
+      // 1. Update basic fields
+      await tx.outfit.update({
+        where: { id },
+        data: {
+          name,
+          occasion,
+        }
+      });
+
+      // 2. Delete old junction records
+      await tx.outfitItem.deleteMany({
+        where: { outfitId: id }
+      });
+
+      // 3. Create new junction records
+      const outfitItemData = verifiedIds.map(clothingItemId => ({
+        outfitId: id,
+        clothingItemId,
+      }));
+
+      await tx.outfitItem.createMany({
+        data: outfitItemData,
+      });
+
+      // 4. Return updated outfit with item relations
+      return await tx.outfit.findUnique({
+        where: { id },
+        include: {
+          outfitItems: {
+            include: {
+              clothingItem: true,
+            }
+          }
+        }
+      });
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Outfit updated successfully.',
+      data: updatedOutfit
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

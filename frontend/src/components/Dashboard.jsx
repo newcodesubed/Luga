@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import UploadModal from './UploadModal';
 import EditModal from './EditModal';
 import StyleMeModal from './StyleMeModal';
+import EditOutfitModal from './EditOutfitModal';
 
 const CATEGORIES = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories'];
 
@@ -18,6 +19,8 @@ export default function Dashboard() {
   const [currentView, setCurrentView] = useState('closet'); // 'closet' or 'outfits'
   const [outfits, setOutfits] = useState([]);
   const [loadingOutfits, setLoadingOutfits] = useState(false);
+  const [selectedOutfit, setSelectedOutfit] = useState(null);
+  const [isEditOutfitOpen, setIsEditOutfitOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -295,7 +298,11 @@ export default function Dashboard() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
               {outfits.map(outfit => (
-                <div key={outfit.id} className="bg-slate-900/10 border border-slate-900/80 hover:border-slate-800/80 rounded-3xl p-6 flex flex-col gap-6 transition-all duration-300">
+                <div
+                  key={outfit.id}
+                  onClick={() => { setSelectedOutfit(outfit); setIsEditOutfitOpen(true); }}
+                  className="bg-slate-900/10 border border-slate-900/80 hover:border-slate-800/80 rounded-3xl p-6 flex flex-col gap-6 transition-all duration-300 cursor-pointer group"
+                >
                   <div className="flex items-start justify-between">
                     <div>
                       <h4 className="font-serif text-2xl text-brand-sand italic font-normal tracking-wide">{outfit.name}</h4>
@@ -353,6 +360,14 @@ export default function Dashboard() {
           fetchItems(token);
           fetchOutfits(token);
         }}
+      />
+
+      <EditOutfitModal
+        isOpen={isEditOutfitOpen}
+        onClose={() => { setIsEditOutfitOpen(false); setSelectedOutfit(null); }}
+        onSuccess={() => fetchOutfits(localStorage.getItem('token'))}
+        outfit={selectedOutfit}
+        closetItems={items}
       />
     </div>
   );
