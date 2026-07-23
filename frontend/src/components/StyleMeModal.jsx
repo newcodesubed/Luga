@@ -106,10 +106,75 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
     }
   };
 
+  const [wearTodaySuccess, setWearTodaySuccess] = useState(false);
+
+  const handleWearToday = async () => {
+    if (!result) return;
+    setSaving(true);
+    setError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const todayStr = new Date().toISOString().split('T')[0];
+      let outfitIdToLog = null;
+
+      // Save outfit first
+      const resOutfit = await fetch('http://localhost:5000/api/outfits', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: result.outfitName,
+          occasion: occasion,
+          clothingItemIds: result.clothingItemIds,
+        }),
+      });
+
+      const dataOutfit = await resOutfit.json();
+
+      if (!resOutfit.ok) {
+        throw new Error(dataOutfit.message || 'Failed to save outfit');
+      }
+
+      setSavedSuccess(true);
+      outfitIdToLog = dataOutfit.data.id;
+
+      // Log to calendar for today
+      const resCalendar = await fetch('http://localhost:5000/api/calendar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          date: todayStr,
+          outfitId: outfitIdToLog,
+        }),
+      });
+
+      if (!resCalendar.ok) {
+        const dataCal = await resCalendar.json();
+        throw new Error(dataCal.message || 'Failed to log to calendar');
+      }
+
+      setWearTodaySuccess(true);
+      if (onGenerationSuccess) {
+        onGenerationSuccess();
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleReset = () => {
     setResult(null);
     setError('');
     setSavedSuccess(false);
+    setWearTodaySuccess(false);
     setSwappingItem(null);
   };
 
@@ -138,9 +203,15 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
           </div>
         )}
 
-        {savedSuccess && (
+        {savedSuccess && !wearTodaySuccess && (
           <div className="bg-brand-emerald/10 border border-brand-emerald/20 text-emerald-400 text-[11px] p-4 rounded-xl mb-6">
             ✓ Outfit saved to your saved lookbooks successfully.
+          </div>
+        )}
+
+        {wearTodaySuccess && (
+          <div className="bg-brand-emerald/10 border border-brand-emerald/20 text-emerald-400 text-[11px] p-4 rounded-xl mb-6">
+            ✓ Outfit saved to lookbook & logged as today's worn outfit in your calendar!
           </div>
         )}
 
@@ -359,10 +430,11 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 border border-slate-800 hover:bg-slate-900 text-[10px] uppercase tracking-widest font-semibold rounded-full text-slate-400 hover:text-slate-200 cursor-pointer"
+                  onClick={handleWearToday}
+                  disabled={saving || wearTodaySuccess}
+                  className="px-5 py-2.5 bg-brand-emerald/20 hover:bg-brand-emerald border border-brand-emerald/40 text-emerald-300 hover:text-white text-[10px] uppercase tracking-widest font-bold rounded-full transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  Wear Today
+                  {wearTodaySuccess ? "✓ Logged Today" : "Wear Today"}
                 </button>
               </div>
 

@@ -4,6 +4,7 @@ import UploadModal from './UploadModal';
 import EditModal from './EditModal';
 import StyleMeModal from './StyleMeModal';
 import EditOutfitModal from './EditOutfitModal';
+import CalendarView from './CalendarView';
 
 const CATEGORIES = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories'];
 
@@ -16,7 +17,7 @@ export default function Dashboard() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isStyleMeOpen, setIsStyleMeOpen] = useState(false);
-  const [currentView, setCurrentView] = useState('closet'); // 'closet' or 'outfits'
+  const [currentView, setCurrentView] = useState('closet'); // 'closet', 'outfits', or 'calendar'
   const [outfits, setOutfits] = useState([]);
   const [loadingOutfits, setLoadingOutfits] = useState(false);
   const [selectedOutfit, setSelectedOutfit] = useState(null);
@@ -81,6 +82,31 @@ export default function Dashboard() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/login');
+  };
+
+  const handleWearOutfitToday = async (outfitId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      const res = await fetch('http://localhost:5000/api/calendar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          date: todayStr,
+          outfitId: outfitId,
+        }),
+      });
+
+      if (res.ok) {
+        alert("Outfit logged as today's outfit in your calendar!");
+      }
+    } catch (err) {
+      console.error('Error logging outfit today:', err);
+    }
   };
 
   const filteredItems = selectedCategory === 'All'
@@ -167,9 +193,20 @@ export default function Dashboard() {
           >
             Saved Lookbooks
           </button>
+          <button
+            onClick={() => setCurrentView('calendar')}
+            className={`pb-3 text-sm font-medium tracking-widest uppercase border-b-2 transition-all duration-300 cursor-pointer ${
+              currentView === 'calendar'
+                ? 'border-brand-bronze text-brand-bronze'
+                : 'border-transparent text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            Outfit Calendar
+          </button>
         </div>
 
-        {currentView === 'closet' ? (
+        {/* 1. CLOSET GALLERY VIEW */}
+        {currentView === 'closet' && (
           <>
             {/* Category Filter Tabs */}
             <div className="flex items-center justify-between border-b border-slate-900/50 pb-5">
@@ -242,7 +279,11 @@ export default function Dashboard() {
                         src={item.imageUrl}
                         alt={item.category}
                         loading="lazy"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                        className={`w-full h-full group-hover:scale-105 transition-transform duration-700 ease-out ${
+                          ['shoes', 'accessories'].includes(item.category.toLowerCase())
+                            ? 'object-contain p-3'
+                            : 'object-cover'
+                        }`}
                       />
                       {/* Floating Monospace Tag Badge */}
                       <span className="absolute top-3 left-3 bg-slate-950/85 backdrop-blur-sm border border-slate-900 text-[9px] uppercase tracking-widest font-mono text-slate-300 px-2.5 py-1 rounded-full">
@@ -273,8 +314,10 @@ export default function Dashboard() {
               </div>
             )}
           </>
-        ) : (
-          /* LOOKBOOKS SECTION */
+        )}
+
+        {/* 2. SAVED LOOKBOOKS VIEW */}
+        {currentView === 'outfits' && (
           loadingOutfits ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {[1, 2].map((_, idx) => (
@@ -310,9 +353,20 @@ export default function Dashboard() {
                         {outfit.occasion}
                       </span>
                     </div>
-                    <span className="text-[10px] font-mono text-slate-600 uppercase tracking-widest">
-                      {new Date(outfit.createdAt).toLocaleDateString()}
-                    </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="text-[10px] font-mono text-slate-600 uppercase tracking-widest">
+                        {new Date(outfit.createdAt).toLocaleDateString()}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleWearOutfitToday(outfit.id);
+                        }}
+                        className="px-3 py-1 bg-brand-emerald/20 hover:bg-brand-emerald border border-brand-emerald/40 text-emerald-300 hover:text-white text-[9px] uppercase tracking-widest font-mono rounded-full transition-all cursor-pointer"
+                      >
+                        Wear Today
+                      </button>
+                    </div>
                   </div>
                   
                   {/* Polaroid Asymmetric overlapping grid style inside container */}
@@ -320,7 +374,15 @@ export default function Dashboard() {
                     {outfit.outfitItems.map(item => (
                       <div key={item.clothingItem.id} className="bg-slate-950 border border-slate-850/80 p-2 rounded-xl flex flex-col shadow-sm">
                         <div className="aspect-[3/4] rounded-lg overflow-hidden relative bg-[#0D111A]">
-                          <img src={item.clothingItem.imageUrl} alt={item.clothingItem.category} className="h-full w-full object-cover" />
+                          <img
+                            src={item.clothingItem.imageUrl}
+                            alt={item.clothingItem.category}
+                            className={`h-full w-full ${
+                              ['shoes', 'accessories'].includes(item.clothingItem.category.toLowerCase())
+                                ? 'object-contain p-2'
+                                : 'object-cover'
+                            }`}
+                          />
                         </div>
                         <div className="pt-2 px-1 text-left">
                           <span className="text-[8px] uppercase tracking-widest font-mono text-slate-500 block truncate">{item.clothingItem.category}</span>
@@ -335,6 +397,11 @@ export default function Dashboard() {
               ))}
             </div>
           )
+        )}
+
+        {/* 3. OUTFIT CALENDAR LOG VIEW */}
+        {currentView === 'calendar' && (
+          <CalendarView outfits={outfits} closetItems={items} />
         )}
       </main>
 

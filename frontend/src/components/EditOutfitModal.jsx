@@ -106,6 +106,44 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
     }
   };
 
+  const [wearSuccess, setWearSuccess] = useState(false);
+
+  const handleWearToday = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      const res = await fetch('http://localhost:5000/api/calendar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          date: todayStr,
+          outfitId: outfit.id,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Failed to log outfit to calendar');
+      }
+
+      setWearSuccess(true);
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -128,6 +166,12 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
         {error && (
           <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-xl mb-4">
             {error}
+          </div>
+        )}
+
+        {wearSuccess && (
+          <div className="bg-brand-emerald/10 border border-brand-emerald/20 text-emerald-400 text-xs p-3 rounded-xl mb-4">
+            ✓ Logged as today's worn outfit in your calendar!
           </div>
         )}
 
@@ -307,7 +351,15 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-4 pt-4 border-t border-slate-900">
-              <div className="flex gap-4">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleWearToday}
+                  disabled={loading || wearSuccess}
+                  className="px-4 py-3 bg-brand-emerald/20 hover:bg-brand-emerald border border-brand-emerald/40 text-emerald-300 hover:text-white text-xs uppercase tracking-widest font-bold rounded-full transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {wearSuccess ? "✓ Logged Today" : "Wear Today"}
+                </button>
                 <button
                   type="button"
                   onClick={onClose}
