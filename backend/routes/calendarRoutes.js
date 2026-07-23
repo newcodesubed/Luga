@@ -51,7 +51,7 @@ router.get('/', authenticateToken, async (req, res, next) => {
 
 /**
  * @route POST /api/calendar
- * @desc Log an outfit or items for a specific date
+ * @desc Log an outfit or items for a specific date (with atomic diffing & wear count sync)
  * @access Private
  */
 router.post('/', authenticateToken, async (req, res, next) => {
@@ -70,7 +70,7 @@ router.post('/', authenticateToken, async (req, res, next) => {
     const inputItemIds = itemIds || clothingItemIds || [];
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Gather all item IDs involved in this wear log
+      // 1. Gather all item IDs involved in the NEW log
       let finalItemIds = [...inputItemIds];
 
       if (outfitId) {
@@ -84,7 +84,75 @@ router.post('/', authenticateToken, async (req, res, next) => {
         }
       }
 
-      // 2. Create or Update the DailyLog entry
+      // 2. Fetch any EXISTING log for this user & date to perform diffing
+      const existingLog = await tx.dailyLog.findUnique({
+        where: {
+          userId_date: {
+            userId,
+            date: logDate
+          }
+        },
+        include: {
+          items: { select: { id: true } },
+          outfit: {
+            include: {
+              outfitItems: { select: { clothingItemId: true } }
+            }
+          }
+        }
+      });
+
+      let oldItemIds = new Set();
+      let oldOutfitId = null;
+
+      if (existingLog) {
+        oldOutfitId = existingLog.outfitId;
+        if (existingLog.items) {
+          existingLog.items.forEach(i => oldItemIds.add(i.id));
+        }
+        if (existingLog.outfit && existingLog.outfit.outfitItems) {
+          existingLog.outfit.outfitItems.forEach(i => oldItemIds.add(i.clothingItemId));
+        }
+      }
+
+      // 3. Compute Item Diff: items to remove vs items to add
+      const newItemsSet = new Set(finalItemIds);
+      const itemsToRemove = [...oldItemIds].filter(id => !newItemsSet.has(id));
+      const itemsToAdd = finalItemIds.filter(id => !oldItemIds.has(id));
+
+      // Decrement removed items
+      if (itemsToRemove.length > 0) {
+        await tx.clothingItem.updateMany({
+          where: { id: { in: itemsToRemove }, userId },
+          data: { wearCount: { decrement: 1 } }
+        });
+      }
+
+      // Increment added items
+      if (itemsToAdd.length > 0) {
+        await tx.clothingItem.updateMany({
+          where: { id: { in: itemsToAdd }, userId },
+          data: { wearCount: { increment: 1 }, lastWornAt: logDate }
+        });
+      }
+
+      // Decrement old outfit if changed or cleared
+      if (oldOutfitId && oldOutfitId !== outfitId) {
+        await tx.outfit.updateMany({
+          where: { id: oldOutfitId, userId },
+          data: { wearCount: { decrement: 1 } }
+        });
+      }
+
+      // Increment new outfit if added or changed
+      if (outfitId && outfitId !== oldOutfitId) {
+        await tx.outfit.updateMany({
+          where: { id: outfitId, userId },
+          data: { wearCount: { increment: 1 }, lastWornAt: logDate }
+        });
+      }
+
+      // 4. Create or Update the DailyLog entry
       const log = await tx.dailyLog.upsert({
         where: {
           userId_date: {
@@ -103,7 +171,7 @@ router.post('/', authenticateToken, async (req, res, next) => {
         update: {
           outfitId: outfitId || null,
           items: {
-            set: finalItemIds.map(id => ({ id })) // Overwrites previous log for that day
+            set: finalItemIds.map(id => ({ id }))
           }
         },
         include: {
@@ -120,40 +188,12 @@ router.post('/', authenticateToken, async (req, res, next) => {
         }
       });
 
-      // 3. Increment wear counts and update lastWornAt for all involved items
-      if (finalItemIds.length > 0) {
-        await tx.clothingItem.updateMany({
-          where: {
-            id: { in: finalItemIds },
-            userId
-          },
-          data: {
-            wearCount: { increment: 1 },
-            lastWornAt: logDate
-          }
-        });
-      }
-
-      // 4. Increment wear count and update lastWornAt for the Outfit combination if outfitId is provided
-      if (outfitId) {
-        await tx.outfit.updateMany({
-          where: {
-            id: outfitId,
-            userId
-          },
-          data: {
-            wearCount: { increment: 1 },
-            lastWornAt: logDate
-          }
-        });
-      }
-
       return log;
     });
 
     res.status(201).json({
       status: 'success',
-      message: 'Outfit logged to calendar successfully',
+      message: 'Outfit logged to calendar successfully with wear counts synchronized.',
       data: result
     });
   } catch (error) {
@@ -163,7 +203,7 @@ router.post('/', authenticateToken, async (req, res, next) => {
 
 /**
  * @route DELETE /api/calendar/:id
- * @desc Delete a daily log entry
+ * @desc Delete a daily log entry and decrement wear counts for its items
  * @access Private
  */
 router.delete('/:id', authenticateToken, async (req, res, next) => {
@@ -172,7 +212,15 @@ router.delete('/:id', authenticateToken, async (req, res, next) => {
     const userId = req.user.id;
 
     const log = await prisma.dailyLog.findFirst({
-      where: { id, userId }
+      where: { id, userId },
+      include: {
+        items: { select: { id: true } },
+        outfit: {
+          include: {
+            outfitItems: { select: { clothingItemId: true } }
+          }
+        }
+      }
     });
 
     if (!log) {
@@ -182,13 +230,42 @@ router.delete('/:id', authenticateToken, async (req, res, next) => {
       });
     }
 
-    await prisma.dailyLog.delete({
-      where: { id }
+    await prisma.$transaction(async (tx) => {
+      // 1. Gather all items to decrement
+      let itemIdsToDecrement = new Set();
+      if (log.items) {
+        log.items.forEach(i => itemIdsToDecrement.add(i.id));
+      }
+      if (log.outfit && log.outfit.outfitItems) {
+        log.outfit.outfitItems.forEach(i => itemIdsToDecrement.add(i.clothingItemId));
+      }
+
+      // 2. Decrement wear counts for removed items
+      const itemIdsArray = [...itemIdsToDecrement];
+      if (itemIdsArray.length > 0) {
+        await tx.clothingItem.updateMany({
+          where: { id: { in: itemIdsArray }, userId },
+          data: { wearCount: { decrement: 1 } }
+        });
+      }
+
+      // 3. Decrement wear count for outfit combination if present
+      if (log.outfitId) {
+        await tx.outfit.updateMany({
+          where: { id: log.outfitId, userId },
+          data: { wearCount: { decrement: 1 } }
+        });
+      }
+
+      // 4. Delete the DailyLog entry
+      await tx.dailyLog.delete({
+        where: { id }
+      });
     });
 
     res.status(200).json({
       status: 'success',
-      message: 'Calendar log removed',
+      message: 'Calendar log removed and wear counts decremented.',
     });
   } catch (error) {
     next(error);
