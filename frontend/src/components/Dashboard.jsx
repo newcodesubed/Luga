@@ -314,6 +314,16 @@ export default function Dashboard() {
                           "{item.aiDescription}"
                         </p>
                       )}
+
+                      {/* Wear Count & Last Worn Badge */}
+                      <div className="flex items-center justify-between pt-2 mt-1 border-t border-slate-900/60 text-[9px] font-mono text-slate-500">
+                        <span>Worn: <strong className="text-brand-sand font-bold">{item.wearCount || 0}x</strong></span>
+                        <span>
+                          {item.lastWornAt
+                            ? `Last: ${new Date(item.lastWornAt).toLocaleDateString()}`
+                            : 'Unworn'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}

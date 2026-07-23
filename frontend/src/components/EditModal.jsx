@@ -231,10 +231,15 @@ export default function EditModal({ isOpen, onClose, onSuccess, item }) {
                 </label>
               </div>
               
-              <div className="flex flex-col text-left">
-                <span className="text-[8px] uppercase tracking-widest font-mono text-slate-500">
-                  {preview ? 'New Image Selected' : 'Current Piece'}
-                </span>
+              <div className="flex flex-col text-left flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[8px] uppercase tracking-widest font-mono text-slate-500">
+                    {preview ? 'New Image Selected' : 'Current Piece'}
+                  </span>
+                  <span className="text-[9px] font-mono text-brand-bronze bg-brand-bronze/10 px-2 py-0.5 rounded-full border border-brand-bronze/20">
+                    Worn {item.wearCount || 0}x
+                  </span>
+                </div>
                 <span className="text-xs font-semibold text-slate-350">{item.category}</span>
                 {item.subCategory && <span className="text-[11px] text-slate-500 font-light mt-0.5">{item.subCategory}</span>}
               </div>

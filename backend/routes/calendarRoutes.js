@@ -107,6 +107,34 @@ router.post('/', authenticateToken, async (req, res, next) => {
       }
     });
 
+    // Update wear tracking metrics for all logged clothing items
+    let targetItemIds = [];
+
+    if (clothingItemIds && clothingItemIds.length > 0) {
+      targetItemIds = clothingItemIds;
+    } else if (outfitId) {
+      const outfitWithItems = await prisma.outfit.findUnique({
+        where: { id: outfitId },
+        include: { outfitItems: { select: { clothingItemId: true } } }
+      });
+      if (outfitWithItems) {
+        targetItemIds = outfitWithItems.outfitItems.map(oi => oi.clothingItemId);
+      }
+    }
+
+    if (targetItemIds.length > 0) {
+      await prisma.clothingItem.updateMany({
+        where: {
+          id: { in: targetItemIds },
+          userId,
+        },
+        data: {
+          wearCount: { increment: 1 },
+          lastWornAt: logDate,
+        }
+      });
+    }
+
     res.status(201).json({
       status: 'success',
       message: 'Outfit logged to calendar successfully',
