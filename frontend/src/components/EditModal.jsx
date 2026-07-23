@@ -10,6 +10,7 @@ export default function EditModal({ isOpen, onClose, onSuccess, item }) {
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   // Pre-fill form when modal opens with a specific item
   useEffect(() => {
@@ -19,6 +20,7 @@ export default function EditModal({ isOpen, onClose, onSuccess, item }) {
       setPrimaryColor(item.primaryColor);
       setAiDescription(item.aiDescription || '');
       setError('');
+      setShowConfirmDelete(false);
     }
   }, [item, isOpen]);
 
@@ -60,11 +62,7 @@ export default function EditModal({ isOpen, onClose, onSuccess, item }) {
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this piece from your wardrobe?')) {
-      return;
-    }
-
+  const executeDelete = async () => {
     setDeleting(true);
     setError('');
 
@@ -87,6 +85,7 @@ export default function EditModal({ isOpen, onClose, onSuccess, item }) {
       onClose();
     } catch (err) {
       setError(err.message);
+      setShowConfirmDelete(false); // Back to edit view on error so they see it
     } finally {
       setDeleting(false);
     }
@@ -95,15 +94,18 @@ export default function EditModal({ isOpen, onClose, onSuccess, item }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Modal Content */}
-      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
-            Edit Item Details
-          </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-sm cursor-pointer">
+      {/* Modal Content - Luxury Editorial Theme */}
+      <div className="relative w-full max-w-lg bg-[#0F172A] border border-slate-900 rounded-3xl p-8 shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar">
+        <div className="flex items-center justify-between mb-6 pb-3 border-b border-slate-900">
+          <div>
+            <span className="text-[9px] uppercase tracking-[0.25em] font-medium text-brand-bronze block mb-1">Wardrobe Piece</span>
+            <h3 className="font-serif text-2xl text-brand-cream italic font-normal">
+              {showConfirmDelete ? 'Remove Piece' : 'Edit Details'}
+            </h3>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-sm cursor-pointer p-1.5 hover:bg-slate-900 rounded-full transition-all">
             ✕
           </button>
         </div>
@@ -114,103 +116,137 @@ export default function EditModal({ isOpen, onClose, onSuccess, item }) {
           </div>
         )}
 
-        <div className="flex gap-4 mb-6 p-4 bg-slate-950/40 border border-slate-800/60 rounded-2xl">
-          <img src={item.imageUrl} alt="Preview" className="w-20 h-20 rounded-xl object-cover border border-slate-800" />
-          <div className="flex flex-col justify-center">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Currently</span>
-            <span className="text-sm font-semibold text-slate-300">{item.category}</span>
-            {item.subCategory && <span className="text-xs text-slate-500">{item.subCategory}</span>}
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Category */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-              Category
-            </label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:border-fuchsia-500 outline-none text-slate-300"
-            >
-              {CATEGORIES.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Subcategory */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-              Sub-Category (Optional)
-            </label>
-            <input
-              type="text"
-              value={subCategory}
-              onChange={(e) => setSubCategory(e.target.value)}
-              placeholder="e.g., Slim-fit, Hoodie, Denim"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:border-fuchsia-500 outline-none text-slate-300"
-            />
-          </div>
-
-          {/* Primary Color */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-              Primary Color
-            </label>
-            <input
-              type="text"
-              required
-              value={primaryColor}
-              onChange={(e) => setPrimaryColor(e.target.value)}
-              placeholder="e.g., Black, White, Red"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:border-fuchsia-500 outline-none text-slate-300"
-            />
-          </div>
-
-          {/* AI / Custom Description */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-              Description (Optional)
-            </label>
-            <textarea
-              value={aiDescription}
-              onChange={(e) => setAiDescription(e.target.value)}
-              placeholder="Add details about fit, material or styling instructions"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:border-fuchsia-500 outline-none text-slate-300 h-20 resize-none"
-            />
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col gap-3 pt-2">
-            <div className="flex gap-3">
+        {showConfirmDelete ? (
+          /* Custom Premium Deletion Confirmation Screen */
+          <div className="space-y-6 text-center py-4">
+            <div className="w-14 h-14 rounded-full bg-red-950/20 border border-red-900/30 flex items-center justify-center mx-auto">
+              <svg className="w-5 h-5 text-red-450" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium uppercase tracking-widest text-slate-350">Confirm Deletion</h4>
+              <p className="text-[11px] text-slate-500 mt-2 max-w-xs mx-auto leading-relaxed font-light">
+                Are you sure you want to remove this piece? This action is permanent and will delete it from your gallery and saved lookbooks.
+              </p>
+            </div>
+            <div className="flex gap-4 pt-4">
               <button
                 type="button"
-                onClick={onClose}
-                className="flex-1 py-3 bg-slate-950 border border-slate-800 text-xs font-semibold rounded-xl text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                onClick={() => setShowConfirmDelete(false)}
+                className="flex-1 py-3 bg-slate-950 border border-slate-900 text-xs uppercase tracking-widest font-semibold rounded-full text-slate-450 hover:text-slate-200 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
-                type="submit"
-                disabled={loading || deleting}
-                className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-xs font-semibold rounded-xl text-slate-100 shadow-md transition-all active:scale-98 disabled:opacity-50 cursor-pointer"
+                type="button"
+                onClick={executeDelete}
+                disabled={deleting}
+                className="flex-1 py-3 bg-red-800 hover:bg-red-700 text-xs uppercase tracking-widest font-semibold rounded-full text-white shadow-lg transition-all transform hover:-translate-y-0.5 cursor-pointer"
               >
-                {loading ? 'Saving Changes...' : 'Save Changes'}
+                {deleting ? 'Deleting...' : 'Delete Piece'}
               </button>
             </div>
-            
-            <button
-              type="button"
-              disabled={loading || deleting}
-              onClick={handleDelete}
-              className="w-full py-3 bg-red-950/20 border border-red-900/30 hover:border-red-900/60 hover:bg-red-950/40 text-red-400 text-xs font-semibold rounded-xl transition-all cursor-pointer"
-            >
-              {deleting ? 'Deleting...' : 'Delete Piece'}
-            </button>
           </div>
-        </form>
+        ) : (
+          /* Custom Form Edit Layout */
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex gap-4 p-3 bg-slate-950/40 border border-slate-900/60 rounded-2xl mb-2 items-center">
+              <img src={item.imageUrl} alt="Preview" className="w-16 h-16 rounded-xl object-cover border border-slate-900" />
+              <div className="flex flex-col text-left">
+                <span className="text-[8px] uppercase tracking-widest font-mono text-slate-500">Current Category</span>
+                <span className="text-xs font-semibold text-slate-350">{item.category}</span>
+                {item.subCategory && <span className="text-[11px] text-slate-500 font-light mt-0.5">{item.subCategory}</span>}
+              </div>
+            </div>
+
+            {/* Category */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-2">
+                Category
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full bg-[#0A0E1A] border border-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-brand-bronze/50 outline-none text-slate-350"
+              >
+                {CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Subcategory */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-2">
+                Sub-Category (Optional)
+              </label>
+              <input
+                type="text"
+                value={subCategory}
+                onChange={(e) => setSubCategory(e.target.value)}
+                placeholder="e.g., Slim-fit, Hoodie, Denim"
+                className="w-full bg-[#0A0E1A] border border-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-brand-bronze/50 outline-none text-slate-350"
+              />
+            </div>
+
+            {/* Primary Color */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-2">
+                Primary Color
+              </label>
+              <input
+                type="text"
+                required
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                placeholder="e.g., Black, White, Red"
+                className="w-full bg-[#0A0E1A] border border-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-brand-bronze/50 outline-none text-slate-350"
+              />
+            </div>
+
+            {/* AI / Custom Description */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-2">
+                Description (Optional)
+              </label>
+              <textarea
+                value={aiDescription}
+                onChange={(e) => setAiDescription(e.target.value)}
+                placeholder="Details about style, material, fit or brand"
+                className="w-full bg-[#0A0E1A] border border-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-brand-bronze/50 outline-none text-slate-350 h-20 resize-none"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-4 pt-4 border-t border-slate-900">
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 py-3 bg-slate-950 border border-slate-900 text-xs uppercase tracking-widest font-semibold rounded-full text-slate-450 hover:text-slate-200 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-3 bg-brand-emerald hover:bg-[#20362D] text-xs uppercase tracking-widest font-semibold rounded-full text-brand-cream shadow-lg transition-all transform hover:-translate-y-0.5 cursor-pointer"
+                >
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+              
+              <button
+                type="button"
+                onClick={() => setShowConfirmDelete(true)}
+                className="w-full py-3 bg-[#1E0F15] hover:bg-[#34121F] border border-red-950/40 hover:border-red-900/60 text-red-400 text-xs uppercase tracking-widest font-semibold rounded-full transition-all cursor-pointer"
+              >
+                Delete Piece
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );
