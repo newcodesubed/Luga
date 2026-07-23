@@ -26,6 +26,8 @@ model ClothingItem {
   subCategory   String?      @map("sub_category")
   primaryColor  String       @map("primary_color")
   aiDescription String?      @map("ai_description")
+  wearCount     Int          @default(0) @map("wear_count")
+  lastWornAt    DateTime?    @map("last_worn_at")
   createdAt     DateTime     @default(now()) @map("created_at")
   
   // Relations
