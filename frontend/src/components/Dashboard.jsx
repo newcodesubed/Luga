@@ -46,8 +46,8 @@ export default function Dashboard() {
     }
 
     setUser(JSON.parse(savedUser));
-    fetchItems(isSilent => isSilent);
-    fetchOutfits(isSilent => isSilent);
+    fetchItems(false);
+    fetchOutfits(false);
   }, [navigate]);
 
   const fetchOutfits = async (isSilent = false) => {
