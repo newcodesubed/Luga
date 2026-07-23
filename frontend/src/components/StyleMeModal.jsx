@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import apiClient from '../api/apiClient';
+import { getItemImageFitClass } from '../utils/imageUtils';
 
 const OCCASIONS = ['Casual', 'Formal', 'Date Night', 'Workplace', 'Gym'];
 const WEATHERS = ['Sunny & Warm', 'Cold & Rainy', 'Snowy & Freezing', 'Mild & Windy', 'Hot & Humid'];
@@ -11,7 +13,8 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [swappingItem, setSwappingItem] = useState(null); // The item we want to swap
+  const [wearTodaySuccess, setWearTodaySuccess] = useState(false);
+  const [swappingItem, setSwappingItem] = useState(null);
 
   if (!isOpen) return null;
 
@@ -21,28 +24,11 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
     setError('');
     setResult(null);
     setSavedSuccess(false);
+    setWearTodaySuccess(false);
     setSwappingItem(null);
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/outfits/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          occasion,
-          weather,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to generate outfit');
-      }
-
+      const data = await apiClient.post('/outfits/generate', { occasion, weather });
       setResult(data.data);
     } catch (err) {
       setError(err.message);
@@ -54,10 +40,7 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
   const handleReplaceItem = (newItem) => {
     if (!swappingItem || !result) return;
 
-    // 1. Swap the ID in clothingItemIds
     const updatedIds = result.clothingItemIds.map(id => id === swappingItem.id ? newItem.id : id);
-
-    // 2. Swap the item details in selectedItems
     const updatedItems = result.selectedItems.map(item => item.id === swappingItem.id ? newItem : item);
 
     setResult({
@@ -66,7 +49,7 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
       selectedItems: updatedItems
     });
 
-    setSwappingItem(null); // Clear swap selection state
+    setSwappingItem(null);
   };
 
   const handleSaveOutfit = async () => {
@@ -75,25 +58,11 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/outfits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: result.outfitName,
-          occasion: occasion,
-          clothingItemIds: result.clothingItemIds,
-        }),
+      await apiClient.post('/outfits', {
+        name: result.outfitName,
+        occasion: occasion,
+        clothingItemIds: result.clothingItemIds,
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to save outfit');
-      }
 
       setSavedSuccess(true);
       if (onGenerationSuccess) {
@@ -106,58 +75,28 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
     }
   };
 
-  const [wearTodaySuccess, setWearTodaySuccess] = useState(false);
-
   const handleWearToday = async () => {
     if (!result) return;
     setSaving(true);
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
       const todayStr = new Date().toISOString().split('T')[0];
       let outfitIdToLog = null;
 
-      // Save outfit first
-      const resOutfit = await fetch('http://localhost:5000/api/outfits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: result.outfitName,
-          occasion: occasion,
-          clothingItemIds: result.clothingItemIds,
-        }),
+      const dataOutfit = await apiClient.post('/outfits', {
+        name: result.outfitName,
+        occasion: occasion,
+        clothingItemIds: result.clothingItemIds,
       });
-
-      const dataOutfit = await resOutfit.json();
-
-      if (!resOutfit.ok) {
-        throw new Error(dataOutfit.message || 'Failed to save outfit');
-      }
 
       setSavedSuccess(true);
       outfitIdToLog = dataOutfit.data.id;
 
-      // Log to calendar for today
-      const resCalendar = await fetch('http://localhost:5000/api/calendar', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          date: todayStr,
-          outfitId: outfitIdToLog,
-        }),
+      await apiClient.post('/calendar', {
+        date: todayStr,
+        outfitId: outfitIdToLog,
       });
-
-      if (!resCalendar.ok) {
-        const dataCal = await resCalendar.json();
-        throw new Error(dataCal.message || 'Failed to log to calendar');
-      }
 
       setWearTodaySuccess(true);
       if (onGenerationSuccess) {
@@ -183,7 +122,7 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
       {/* Backdrop */}
       <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Modal Card - Styled for Editorial Luxury */}
+      {/* Modal Card */}
       <div className="relative w-full max-w-3xl bg-[#0F172A] border border-slate-900 rounded-3xl p-8 shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar">
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-900">
           <div>
@@ -309,7 +248,6 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
         ) : (
           /* Editorial Lookbook Canvas Response */
           <div className="space-y-8">
-            {/* Hero Header block */}
             <div className="p-6 rounded-2xl bg-slate-900/10 border border-slate-900/80 flex flex-col gap-2 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-24 h-24 bg-brand-sand/5 rounded-full blur-xl pointer-events-none" />
               <h4 className="font-serif text-3xl italic text-brand-sand font-normal tracking-wide">{result.outfitName}</h4>
@@ -318,7 +256,6 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
               </p>
             </div>
 
-            {/* Asymmetrical / Carousel Collage Polaroid frame selection */}
             <div>
               <span className="block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-4">
                 Recommended Assembled Collage
@@ -328,18 +265,14 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
                   <div
                     key={clothingItem.id}
                     className={`bg-slate-950 border border-slate-850/80 p-3 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 flex flex-col transform ${
-                      index % 2 === 1 ? 'translate-y-2' : '' // Subtle asymmetric offset
+                      index % 2 === 1 ? 'translate-y-2' : ''
                     }`}
                   >
                     <div className="aspect-[3/4] rounded-xl overflow-hidden bg-[#0C0F18]">
                       <img
                         src={clothingItem.imageUrl}
                         alt={clothingItem.category}
-                        className={`h-full w-full ${
-                          ['shoes', 'accessories'].includes(clothingItem.category.toLowerCase())
-                            ? 'object-contain p-2'
-                            : 'object-cover'
-                        }`}
+                        className={`h-full w-full ${getItemImageFitClass(clothingItem.category, 'p-2')}`}
                       />
                     </div>
                     <div className="pt-3 px-1 flex flex-col">
@@ -352,7 +285,6 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
                         </span>
                       )}
                       
-                      {/* Individual Swap Action Button */}
                       <button
                         type="button"
                         onClick={() => setSwappingItem(clothingItem)}
@@ -366,7 +298,6 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
               </div>
             </div>
 
-            {/* Swap drawer - displayed below when an item is selected for swap */}
             {swappingItem && (
               <div className="p-5 rounded-2xl bg-slate-950/80 border border-slate-900 space-y-3 mt-4 transition-all">
                 <div className="flex items-center justify-between">
@@ -387,7 +318,7 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
                     .filter(item => 
                       item.category.toLowerCase() === swappingItem.category.toLowerCase() && 
                       item.id !== swappingItem.id &&
-                      !result.clothingItemIds.includes(item.id) // Exclude items already in this outfit
+                      !result.clothingItemIds.includes(item.id)
                     )
                     .map(alternativeItem => (
                       <div
@@ -399,11 +330,7 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
                           <img
                             src={alternativeItem.imageUrl}
                             alt={alternativeItem.category}
-                            className={`h-full w-full ${
-                              ['shoes', 'accessories'].includes(alternativeItem.category.toLowerCase())
-                                ? 'object-contain p-1'
-                                : 'object-cover'
-                            }`}
+                            className={`h-full w-full ${getItemImageFitClass(alternativeItem.category, 'p-1')}`}
                           />
                         </div>
                         <span className="text-[9px] text-slate-400 mt-1.5 truncate max-w-full font-mono">
@@ -441,7 +368,7 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, clo
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleReset}
-                  className="px-5 py-2.5 bg-slate-950 border border-slate-900 text-[10px] uppercase tracking-widest font-semibold rounded-full text-slate-450 hover:text-slate-200 transition-colors cursor-pointer"
+                  className="px-5 py-2.5 bg-slate-950 border border-slate-900 text-[10px] uppercase tracking-widest font-semibold rounded-full text-slate-455 hover:text-slate-200 transition-colors cursor-pointer"
                 >
                   Re-Style
                 </button>

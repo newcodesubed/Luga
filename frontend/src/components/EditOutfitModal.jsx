@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import apiClient from '../api/apiClient';
+import { getItemImageFitClass } from '../utils/imageUtils';
 
 const OCCASIONS = ['Casual', 'Formal', 'Date Night', 'Workplace', 'Gym'];
 
@@ -21,6 +23,7 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
       setError('');
       setShowConfirmDelete(false);
       setSwappingItem(null);
+      setWearSuccess(false);
     }
   }, [outfit, isOpen]);
 
@@ -46,27 +49,13 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
       const clothingItemIds = selectedItems.map(item => item.id);
 
-      const res = await fetch(`http://localhost:5000/api/outfits/${outfit.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name,
-          occasion,
-          clothingItemIds,
-        }),
+      await apiClient.put(`/outfits/${outfit.id}`, {
+        name,
+        occasion,
+        clothingItemIds,
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to update outfit');
-      }
 
       onSuccess();
       onClose();
@@ -82,20 +71,7 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/outfits/${outfit.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to delete outfit');
-      }
-
+      await apiClient.delete(`/outfits/${outfit.id}`);
       onSuccess();
       onClose();
     } catch (err) {
@@ -113,25 +89,12 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
       const todayStr = new Date().toISOString().split('T')[0];
 
-      const res = await fetch('http://localhost:5000/api/calendar', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          date: todayStr,
-          outfitId: outfit.id,
-        }),
+      await apiClient.post('/calendar', {
+        date: todayStr,
+        outfitId: outfit.id,
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || 'Failed to log outfit to calendar');
-      }
 
       setWearSuccess(true);
       if (onSuccess) {
@@ -149,7 +112,7 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
       {/* Backdrop */}
       <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Modal Content - Luxury Theme */}
+      {/* Modal Content */}
       <div className="relative w-full max-w-2xl bg-[#0F172A] border border-slate-900 rounded-3xl p-8 shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar">
         <div className="flex items-center justify-between mb-6 pb-3 border-b border-slate-900">
           <div>
@@ -211,7 +174,6 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
           /* Form Edit Layout */
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {/* Outfit Name */}
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-2">
                   Outfit Name
@@ -226,7 +188,6 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
                 />
               </div>
 
-              {/* Occasion */}
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-2">
                   Occasion
@@ -255,11 +216,7 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
                       <img
                         src={item.imageUrl}
                         alt={item.category}
-                        className={`h-full w-full ${
-                          ['shoes', 'accessories'].includes(item.category.toLowerCase())
-                            ? 'object-contain p-2'
-                            : 'object-cover'
-                        }`}
+                        className={`h-full w-full ${getItemImageFitClass(item.category, 'p-2')}`}
                       />
                     </div>
                     <div className="pt-2 px-1 flex flex-col">
@@ -267,7 +224,6 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
                       <span className="text-[11px] font-semibold text-slate-300 truncate mt-0.5">{item.subCategory || 'Standard'}</span>
                     </div>
 
-                    {/* Remove/Swap Action overlays */}
                     <div className="flex gap-1.5 mt-2 pt-2 border-t border-slate-900">
                       <button
                         type="button"
@@ -323,11 +279,7 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
                           <img
                             src={alternativeItem.imageUrl}
                             alt={alternativeItem.category}
-                            className={`h-full w-full ${
-                              ['shoes', 'accessories'].includes(alternativeItem.category.toLowerCase())
-                                ? 'object-contain p-1'
-                                : 'object-cover'
-                            }`}
+                            className={`h-full w-full ${getItemImageFitClass(alternativeItem.category, 'p-1')}`}
                           />
                         </div>
                         <span className="text-[9px] text-slate-400 mt-1.5 truncate max-w-full font-mono">

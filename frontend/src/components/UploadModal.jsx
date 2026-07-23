@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import apiClient from '../api/apiClient';
 
 const CATEGORIES = ['Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories'];
 
@@ -38,26 +39,11 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess }) {
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
-
       // Step 1: Request pre-signed URL from backend
-      const presignedRes = await fetch('http://localhost:5000/api/upload/presigned-url', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          fileType: file.type,
-          fileName: file.name,
-        }),
+      const presignedData = await apiClient.post('/upload/presigned-url', {
+        fileType: file.type,
+        fileName: file.name,
       });
-
-      const presignedData = await presignedRes.json();
-
-      if (!presignedRes.ok) {
-        throw new Error(presignedData.message || 'Failed to get pre-signed URL');
-      }
 
       const { uploadUrl, publicUrl, key } = presignedData.data;
 
@@ -75,27 +61,14 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess }) {
       }
 
       // Step 3: Save metadata & imageUrl in PostgreSQL database
-      const saveRes = await fetch('http://localhost:5000/api/clothing', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          imageUrl: publicUrl,
-          key,
-          category,
-          subCategory: subCategory || null,
-          primaryColor,
-          aiDescription: aiDescription || null,
-        }),
+      await apiClient.post('/clothing', {
+        imageUrl: publicUrl,
+        key,
+        category,
+        subCategory: subCategory || null,
+        primaryColor,
+        aiDescription: aiDescription || null,
       });
-
-      const saveData = await saveRes.json();
-
-      if (!saveRes.ok) {
-        throw new Error(saveData.message || 'Failed to save item in database');
-      }
 
       // Success
       onUploadSuccess();
