@@ -5,6 +5,7 @@ const authRoutes = require('./routes/authRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const clothingRoutes = require('./routes/clothingRoutes');
 const outfitRoutes = require('./routes/outfitRoutes');
+const calendarRoutes = require('./routes/calendarRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -23,6 +24,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/clothing', clothingRoutes);
 app.use('/api/outfits', outfitRoutes);
+app.use('/api/calendar', calendarRoutes);
 
 // Simple health check endpoint
 app.get('/health', (req, res) => {
