@@ -13,6 +13,7 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
   const [error, setError] = useState('');
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [swappingItem, setSwappingItem] = useState(null);
+  const [wearSuccess, setWearSuccess] = useState(false);
 
   useEffect(() => {
     if (outfit) {
@@ -81,8 +82,6 @@ export default function EditOutfitModal({ isOpen, onClose, onSuccess, outfit, cl
       setDeleting(false);
     }
   };
-
-  const [wearSuccess, setWearSuccess] = useState(false);
 
   const handleWearToday = async () => {
     setLoading(true);
