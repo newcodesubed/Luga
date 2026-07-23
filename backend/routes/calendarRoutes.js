@@ -56,7 +56,7 @@ router.get('/', authenticateToken, async (req, res, next) => {
  */
 router.post('/', authenticateToken, async (req, res, next) => {
   try {
-    const { date, outfitId, clothingItemIds } = req.body;
+    const { date, outfitId, clothingItemIds, itemIds } = req.body;
     const userId = req.user.id;
 
     if (!date) {
@@ -67,78 +67,80 @@ router.post('/', authenticateToken, async (req, res, next) => {
     }
 
     const logDate = new Date(date);
+    const inputItemIds = itemIds || clothingItemIds || [];
 
-    // Remove existing log for this user & date if any
-    const existingLog = await prisma.dailyLog.findUnique({
-      where: {
-        userId_date: {
-          userId,
-          date: logDate
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Gather all item IDs involved in this wear log
+      let finalItemIds = [...inputItemIds];
+
+      if (outfitId) {
+        const outfit = await tx.outfit.findUnique({
+          where: { id: outfitId },
+          include: { outfitItems: { select: { clothingItemId: true } } }
+        });
+        if (outfit) {
+          const outfitItemIds = outfit.outfitItems.map(i => i.clothingItemId);
+          finalItemIds = Array.from(new Set([...finalItemIds, ...outfitItemIds]));
         }
       }
-    });
 
-    if (existingLog) {
-      await prisma.dailyLog.delete({
-        where: { id: existingLog.id }
-      });
-    }
-
-    const newLog = await prisma.dailyLog.create({
-      data: {
-        userId,
-        date: logDate,
-        outfitId: outfitId || null,
-        items: clothingItemIds && clothingItemIds.length > 0 ? {
-          connect: clothingItemIds.map(id => ({ id }))
-        } : undefined
-      },
-      include: {
-        items: true,
-        outfit: {
-          include: {
-            outfitItems: {
-              include: {
-                clothingItem: true
+      // 2. Create or Update the DailyLog entry
+      const log = await tx.dailyLog.upsert({
+        where: {
+          userId_date: {
+            userId,
+            date: logDate
+          }
+        },
+        create: {
+          userId,
+          date: logDate,
+          outfitId: outfitId || null,
+          items: {
+            connect: finalItemIds.map(id => ({ id }))
+          }
+        },
+        update: {
+          outfitId: outfitId || null,
+          items: {
+            set: finalItemIds.map(id => ({ id })) // Overwrites previous log for that day
+          }
+        },
+        include: {
+          items: true,
+          outfit: {
+            include: {
+              outfitItems: {
+                include: {
+                  clothingItem: true
+                }
               }
             }
           }
         }
+      });
+
+      // 3. Increment wear counts and update lastWornAt for all involved items
+      if (finalItemIds.length > 0) {
+        await tx.clothingItem.updateMany({
+          where: {
+            id: { in: finalItemIds },
+            userId
+          },
+          data: {
+            wearCount: { increment: 1 },
+            lastWornAt: logDate
+          }
+        });
       }
+
+      return log;
     });
-
-    // Update wear tracking metrics for all logged clothing items
-    let targetItemIds = [];
-
-    if (clothingItemIds && clothingItemIds.length > 0) {
-      targetItemIds = clothingItemIds;
-    } else if (outfitId) {
-      const outfitWithItems = await prisma.outfit.findUnique({
-        where: { id: outfitId },
-        include: { outfitItems: { select: { clothingItemId: true } } }
-      });
-      if (outfitWithItems) {
-        targetItemIds = outfitWithItems.outfitItems.map(oi => oi.clothingItemId);
-      }
-    }
-
-    if (targetItemIds.length > 0) {
-      await prisma.clothingItem.updateMany({
-        where: {
-          id: { in: targetItemIds },
-          userId,
-        },
-        data: {
-          wearCount: { increment: 1 },
-          lastWornAt: logDate,
-        }
-      });
-    }
 
     res.status(201).json({
       status: 'success',
       message: 'Outfit logged to calendar successfully',
-      data: newLog
+      data: result
     });
   } catch (error) {
     next(error);
