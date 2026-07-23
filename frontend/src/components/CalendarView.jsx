@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import apiClient from '../api/apiClient';
+import { getItemImageFitClass } from '../utils/imageUtils';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -28,16 +30,8 @@ export default function CalendarView({ outfits = [], closetItems = [] }) {
   const fetchCalendarLogs = async (y, m) => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/calendar?year=${y}&month=${m}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setLogs(data.data || []);
-      }
+      const data = await apiClient.get(`/calendar?year=${y}&month=${m}`);
+      setLogs(data.data || []);
     } catch (err) {
       console.error('Error fetching calendar logs:', err);
     } finally {
@@ -69,7 +63,6 @@ export default function CalendarView({ outfits = [], closetItems = [] }) {
     const formattedDay = `${year}-${String(month).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
     setSelectedDay(formattedDay);
     
-    // Check if existing log exists
     const existing = logsMap[formattedDay];
     if (existing) {
       if (existing.outfitId) {
@@ -96,26 +89,15 @@ export default function CalendarView({ outfits = [], closetItems = [] }) {
     setSubmitting(true);
 
     try {
-      const token = localStorage.getItem('token');
       const payload = {
         date: selectedDay,
         outfitId: logType === 'outfit' ? selectedOutfitId : null,
         clothingItemIds: logType === 'items' ? selectedItemIds : []
       };
 
-      const res = await fetch('http://localhost:5000/api/calendar', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        fetchCalendarLogs(year, month);
-        setIsLogModalOpen(false);
-      }
+      await apiClient.post('/calendar', payload);
+      fetchCalendarLogs(year, month);
+      setIsLogModalOpen(false);
     } catch (err) {
       console.error('Failed to log outfit to calendar:', err);
     } finally {
@@ -125,17 +107,9 @@ export default function CalendarView({ outfits = [], closetItems = [] }) {
 
   const handleDeleteLog = async (logId) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/calendar/${logId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      if (res.ok) {
-        fetchCalendarLogs(year, month);
-        setIsLogModalOpen(false);
-      }
+      await apiClient.delete(`/calendar/${logId}`);
+      fetchCalendarLogs(year, month);
+      setIsLogModalOpen(false);
     } catch (err) {
       console.error('Failed to delete calendar log:', err);
     }
@@ -162,11 +136,7 @@ export default function CalendarView({ outfits = [], closetItems = [] }) {
               <img
                 src={item.imageUrl}
                 alt={item.category}
-                className={`w-full h-full ${
-                  ['shoes', 'accessories'].includes(item.category?.toLowerCase())
-                    ? 'object-contain p-0.5'
-                    : 'object-cover'
-                }`}
+                className={`w-full h-full ${getItemImageFitClass(item.category, 'p-0.5')}`}
               />
             </div>
           ))}
@@ -348,7 +318,7 @@ export default function CalendarView({ outfits = [], closetItems = [] }) {
                             isChecked ? 'border-brand-bronze bg-brand-bronze/10' : 'border-slate-850 bg-slate-950/40 opacity-60'
                           }`}
                         >
-                          <img src={item.imageUrl} alt={item.category} className="h-14 w-full object-cover rounded-lg" />
+                          <img src={item.imageUrl} alt={item.category} className={`h-14 w-full rounded-lg ${getItemImageFitClass(item.category, 'p-1')}`} />
                           <span className="text-[8px] uppercase tracking-widest font-mono text-slate-400 mt-1 truncate">{item.category}</span>
                         </div>
                       );

@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import apiClient from '../api/apiClient';
 import UploadModal from './UploadModal';
 import EditModal from './EditModal';
 import StyleMeModal from './StyleMeModal';
 import EditOutfitModal from './EditOutfitModal';
 import CalendarView from './CalendarView';
+import WardrobeCard from './WardrobeCard';
+import OutfitCard from './OutfitCard';
+import Toast from './Toast';
 
 const CATEGORIES = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories'];
 
@@ -42,22 +46,15 @@ export default function Dashboard() {
     }
 
     setUser(JSON.parse(savedUser));
-    fetchItems(token);
-    fetchOutfits(token);
+    fetchItems(isSilent => isSilent);
+    fetchOutfits(isSilent => isSilent);
   }, [navigate]);
 
-  const fetchOutfits = async (token, isSilent = false) => {
+  const fetchOutfits = async (isSilent = false) => {
     if (!isSilent) setLoadingOutfits(true);
     try {
-      const res = await fetch('http://localhost:5000/api/outfits', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setOutfits(data.data || []);
-      }
+      const data = await apiClient.get('/outfits');
+      setOutfits(data.data || []);
     } catch (err) {
       console.error('Error fetching outfits:', err);
     } finally {
@@ -65,18 +62,11 @@ export default function Dashboard() {
     }
   };
 
-  const fetchItems = async (token, isSilent = false) => {
+  const fetchItems = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/clothing', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setItems(data.data || []);
-      }
+      const data = await apiClient.get('/clothing');
+      setItems(data.data || []);
     } catch (err) {
       console.error('Error fetching clothing items:', err);
     } finally {
@@ -91,10 +81,9 @@ export default function Dashboard() {
   };
 
   const handleWearOutfitToday = async (outfitId) => {
-    const token = localStorage.getItem('token');
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // 1. Instant Optimistic UI Update (0ms delay, no skeleton flash)
+    // 1. Instant Optimistic UI Update
     setOutfits(prev => prev.map(o => o.id === outfitId ? { ...o, wearCount: (o.wearCount || 0) + 1, lastWornAt: todayStr } : o));
 
     const targetOutfit = outfits.find(o => o.id === outfitId);
@@ -107,22 +96,12 @@ export default function Dashboard() {
 
     // 2. Silent API Sync in background
     try {
-      const res = await fetch('http://localhost:5000/api/calendar', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          date: todayStr,
-          outfitId: outfitId,
-        }),
+      await apiClient.post('/calendar', {
+        date: todayStr,
+        outfitId: outfitId,
       });
-
-      if (res.ok) {
-        fetchItems(token, true);
-        fetchOutfits(token, true);
-      }
+      fetchItems(true);
+      fetchOutfits(true);
     } catch (err) {
       console.error('Error logging outfit today:', err);
     }
@@ -140,11 +119,11 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#0F172A] text-[#F8FAF9] flex flex-col font-sans relative selection:bg-brand-bronze selection:text-[#F8FAF9]">
-      {/* Editorial subtle light background highlight */}
+      {/* Editorial background highlights */}
       <div className="absolute top-0 right-10 w-[600px] h-[600px] bg-brand-sand/5 rounded-full blur-[160px] pointer-events-none" />
       <div className="absolute bottom-10 left-10 w-[500px] h-[500px] bg-brand-emerald/5 rounded-full blur-[140px] pointer-events-none" />
 
-      {/* Frosted Luxury Floating Header */}
+      {/* Floating Header */}
       <header className="border-b border-slate-900 bg-[#0F172A]/70 backdrop-blur-md sticky top-0 z-50 px-8 py-5 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-9 h-9 border border-brand-bronze/45 rounded-full flex items-center justify-center font-serif text-lg text-brand-bronze font-bold">
@@ -202,7 +181,7 @@ export default function Dashboard() {
           <button
             onClick={() => {
               setCurrentView('outfits');
-              fetchOutfits(localStorage.getItem('token'));
+              fetchOutfits(true);
             }}
             className={`pb-3 text-sm font-medium tracking-widest uppercase border-b-2 transition-all duration-300 cursor-pointer ${
               currentView === 'outfits'
@@ -249,7 +228,7 @@ export default function Dashboard() {
               </span>
             </div>
             
-            {/* Shimmer Placeholder Skeletons */}
+            {/* Loading Skeletons */}
             {loading ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {[1, 2, 3, 4, 5, 6].map((_, idx) => (
@@ -263,7 +242,7 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : filteredItems.length === 0 ? (
-              /* Minimalistic Curated Empty State */
+              /* Empty State */
               <div className="flex-1 flex flex-col items-center justify-center py-24 text-center space-y-6 max-w-sm mx-auto">
                 <div className="w-14 h-14 rounded-full border border-slate-800 bg-slate-900/20 flex items-center justify-center">
                   <svg className="w-5 h-5 text-slate-650" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -284,65 +263,14 @@ export default function Dashboard() {
                 </button>
               </div>
             ) : (
-              /* Sleek 3:4 Portrait Fashion Grid */
+              /* Wardrobe Grid */
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
                 {filteredItems.map(item => (
-                  <div
+                  <WardrobeCard
                     key={item.id}
+                    item={item}
                     onClick={() => { setSelectedItem(item); setIsEditOpen(true); }}
-                    className="group relative bg-slate-900/10 border border-slate-900/80 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:border-slate-800/80 transition-all duration-300 flex flex-col cursor-pointer"
-                  >
-                    {/* Portrait Image frame */}
-                    <div className="aspect-[3/4] overflow-hidden bg-[#0A0D14] relative">
-                      <img
-                        src={item.imageUrl}
-                        alt={item.category}
-                        loading="lazy"
-                        className={`w-full h-full group-hover:scale-105 transition-transform duration-700 ease-out ${
-                          ['shoes', 'accessories'].includes(item.category.toLowerCase())
-                            ? 'object-contain p-3'
-                            : 'object-cover'
-                        }`}
-                      />
-                      {/* Floating Monospace Tag Badge */}
-                      <span className="absolute top-3 left-3 bg-slate-950/85 backdrop-blur-sm border border-slate-900 text-[9px] uppercase tracking-widest font-mono text-slate-300 px-2.5 py-1 rounded-full">
-                        {item.category}
-                      </span>
-                      {/* Top Right Floating Wear Count Badge */}
-                      <div className="absolute top-3 right-3 bg-slate-950/85 backdrop-blur-sm border border-brand-sand/20 text-[9px] font-mono text-brand-sand font-semibold px-2.5 py-1 rounded-full">
-                        Worn {item.wearCount || 0}x
-                      </div>
-                    </div>
-
-                    {/* Minimal details block */}
-                    <div className="p-4 flex flex-col gap-1.5 border-t border-slate-950 bg-slate-900/5 backdrop-blur-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-200 uppercase tracking-wide truncate pr-2">
-                          {item.subCategory || 'Standard'}
-                        </span>
-                        <span
-                          className="w-3 h-3 rounded-full border border-slate-800/50"
-                          style={{ backgroundColor: item.primaryColor }}
-                          title={item.primaryColor}
-                        />
-                      </div>
-                      {item.aiDescription && (
-                        <p className="text-[10px] text-slate-500 italic font-light line-clamp-2 mt-0.5">
-                          "{item.aiDescription}"
-                        </p>
-                      )}
-
-                      {/* Wear Count & Last Worn Badge */}
-                      <div className="flex items-center justify-between pt-2 mt-1 border-t border-slate-900/60 text-[9px] font-mono text-slate-500">
-                        <span>Worn: <strong className="text-brand-sand font-bold">{item.wearCount || 0}x</strong></span>
-                        <span>
-                          {item.lastWornAt
-                            ? `Last: ${new Date(item.lastWornAt).toLocaleDateString()}`
-                            : 'Unworn'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                  />
                 ))}
               </div>
             )}
@@ -374,64 +302,12 @@ export default function Dashboard() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
               {outfits.map(outfit => (
-                <div
+                <OutfitCard
                   key={outfit.id}
+                  outfit={outfit}
                   onClick={() => { setSelectedOutfit(outfit); setIsEditOutfitOpen(true); }}
-                  className="bg-slate-900/10 border border-slate-900/80 hover:border-slate-800/80 rounded-3xl p-6 flex flex-col gap-6 transition-all duration-300 cursor-pointer group"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-serif text-2xl text-brand-sand italic font-normal tracking-wide">{outfit.name}</h4>
-                      <div className="flex items-center gap-2 mt-3">
-                        <span className="text-[9px] uppercase tracking-widest font-mono text-brand-bronze bg-brand-bronze/10 px-2.5 py-1 rounded-full border border-brand-bronze/20 inline-block">
-                          {outfit.occasion}
-                        </span>
-                        <span className="text-[9px] font-mono text-brand-sand bg-brand-sand/10 px-2.5 py-1 rounded-full border border-brand-sand/20 inline-block">
-                          Worn {outfit.wearCount || 0}x
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span className="text-[10px] font-mono text-slate-600 uppercase tracking-widest">
-                        {new Date(outfit.createdAt).toLocaleDateString()}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleWearOutfitToday(outfit.id);
-                        }}
-                        className="px-3 py-1 bg-brand-emerald/20 hover:bg-brand-emerald border border-brand-emerald/40 text-emerald-300 hover:text-white text-[9px] uppercase tracking-widest font-mono rounded-full transition-all cursor-pointer"
-                      >
-                        Wear Today
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Polaroid Asymmetric overlapping grid style inside container */}
-                  <div className="grid grid-cols-3 gap-4 mt-2">
-                    {outfit.outfitItems.map(item => (
-                      <div key={item.clothingItem.id} className="bg-slate-950 border border-slate-850/80 p-2 rounded-xl flex flex-col shadow-sm">
-                        <div className="aspect-[3/4] rounded-lg overflow-hidden relative bg-[#0D111A]">
-                          <img
-                            src={item.clothingItem.imageUrl}
-                            alt={item.clothingItem.category}
-                            className={`h-full w-full ${
-                              ['shoes', 'accessories'].includes(item.clothingItem.category.toLowerCase())
-                                ? 'object-contain p-2'
-                                : 'object-cover'
-                            }`}
-                          />
-                        </div>
-                        <div className="pt-2 px-1 text-left">
-                          <span className="text-[8px] uppercase tracking-widest font-mono text-slate-500 block truncate">{item.clothingItem.category}</span>
-                          {item.clothingItem.subCategory && (
-                            <span className="text-[10px] font-semibold text-slate-300 block truncate mt-0.5">{item.clothingItem.subCategory}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                  onWearToday={handleWearOutfitToday}
+                />
               ))}
             </div>
           )
@@ -446,13 +322,13 @@ export default function Dashboard() {
       <UploadModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
-        onUploadSuccess={() => fetchItems(localStorage.getItem('token'), true)}
+        onUploadSuccess={() => fetchItems(true)}
       />
 
       <EditModal
         isOpen={isEditOpen}
         onClose={() => { setIsEditOpen(false); setSelectedItem(null); }}
-        onSuccess={() => fetchItems(localStorage.getItem('token'), true)}
+        onSuccess={() => fetchItems(true)}
         item={selectedItem}
       />
 
@@ -461,27 +337,21 @@ export default function Dashboard() {
         onClose={() => setIsStyleMeOpen(false)}
         closetItems={items}
         onGenerationSuccess={() => {
-          const token = localStorage.getItem('token');
-          fetchItems(token, true);
-          fetchOutfits(token, true);
+          fetchItems(true);
+          fetchOutfits(true);
         }}
       />
 
       <EditOutfitModal
         isOpen={isEditOutfitOpen}
         onClose={() => { setIsEditOutfitOpen(false); setSelectedOutfit(null); }}
-        onSuccess={() => fetchOutfits(localStorage.getItem('token'), true)}
+        onSuccess={() => fetchOutfits(true)}
         outfit={selectedOutfit}
         closetItems={items}
       />
 
       {/* Floating Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-8 right-8 z-50 bg-[#0F172A] border border-brand-emerald/40 text-emerald-400 text-xs px-5 py-3.5 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-3 animate-fade-in border-slate-850">
-          <span className="w-2 h-2 rounded-full bg-brand-emerald animate-pulse" />
-          <span className="font-medium tracking-wide">{toastMessage}</span>
-        </div>
-      )}
+      <Toast message={toastMessage} />
     </div>
   );
 }
