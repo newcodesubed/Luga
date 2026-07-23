@@ -3,7 +3,7 @@ import { useState } from 'react';
 const OCCASIONS = ['Casual', 'Formal', 'Date Night', 'Workplace', 'Gym'];
 const WEATHERS = ['Sunny & Warm', 'Cold & Rainy', 'Snowy & Freezing', 'Mild & Windy', 'Hot & Humid'];
 
-export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
+export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess, closetItems = [] }) {
   const [occasion, setOccasion] = useState('Casual');
   const [weather, setWeather] = useState('Sunny & Warm');
   const [loading, setLoading] = useState(false);
@@ -11,6 +11,7 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [swappingItem, setSwappingItem] = useState(null); // The item we want to swap
 
   if (!isOpen) return null;
 
@@ -20,6 +21,7 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
     setError('');
     setResult(null);
     setSavedSuccess(false);
+    setSwappingItem(null);
 
     try {
       const token = localStorage.getItem('token');
@@ -47,6 +49,24 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleReplaceItem = (newItem) => {
+    if (!swappingItem || !result) return;
+
+    // 1. Swap the ID in clothingItemIds
+    const updatedIds = result.clothingItemIds.map(id => id === swappingItem.id ? newItem.id : id);
+
+    // 2. Swap the item details in selectedItems
+    const updatedItems = result.selectedItems.map(item => item.id === swappingItem.id ? newItem : item);
+
+    setResult({
+      ...result,
+      clothingItemIds: updatedIds,
+      selectedItems: updatedItems
+    });
+
+    setSwappingItem(null); // Clear swap selection state
   };
 
   const handleSaveOutfit = async () => {
@@ -90,6 +110,7 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
     setResult(null);
     setError('');
     setSavedSuccess(false);
+    setSwappingItem(null);
   };
 
   return (
@@ -202,7 +223,7 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
             <div className="flex gap-4 pt-6 border-t border-slate-900">
               <button
                 onClick={handleReset}
-                className="flex-1 py-3 bg-slate-950 border border-slate-900 text-xs uppercase tracking-widest font-medium rounded-full text-slate-450 hover:text-slate-200 transition-colors cursor-pointer"
+                className="flex-1 py-3 bg-slate-950 border border-slate-900 text-xs uppercase tracking-widest font-medium rounded-full text-slate-455 hover:text-slate-200 transition-colors cursor-pointer"
               >
                 Change filters
               </button>
@@ -243,10 +264,14 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
                       <img
                         src={clothingItem.imageUrl}
                         alt={clothingItem.category}
-                        className="h-full w-full object-cover"
+                        className={`h-full w-full ${
+                          ['shoes', 'accessories'].includes(clothingItem.category.toLowerCase())
+                            ? 'object-contain p-2'
+                            : 'object-cover'
+                        }`}
                       />
                     </div>
-                    <div className="pt-3 px-1">
+                    <div className="pt-3 px-1 flex flex-col">
                       <span className="text-[8px] uppercase tracking-widest font-mono text-brand-bronze block">
                         {clothingItem.category}
                       </span>
@@ -255,21 +280,83 @@ export default function StyleMeModal({ isOpen, onClose, onGenerationSuccess }) {
                           {clothingItem.subCategory}
                         </span>
                       )}
+                      
+                      {/* Individual Swap Action Button */}
+                      <button
+                        type="button"
+                        onClick={() => setSwappingItem(clothingItem)}
+                        className="mt-3 py-1.5 border border-slate-800 hover:border-slate-700 bg-[#0F172A] hover:bg-slate-900 text-[9px] uppercase tracking-widest font-mono rounded-lg text-slate-400 hover:text-brand-cream transition-colors cursor-pointer"
+                      >
+                        Swap Piece
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Premium Action Chips Bar */}
+            {/* Swap drawer - displayed below when an item is selected for swap */}
+            {swappingItem && (
+              <div className="p-5 rounded-2xl bg-slate-950/80 border border-slate-900 space-y-3 mt-4 transition-all">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                    Select alternative {swappingItem.category}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSwappingItem(null)}
+                    className="text-[10px] uppercase tracking-wider font-semibold text-red-400 hover:text-red-300"
+                  >
+                    Cancel Swap
+                  </button>
+                </div>
+                
+                <div className="flex gap-4 overflow-x-auto py-1 no-scrollbar max-h-36">
+                  {closetItems
+                    .filter(item => 
+                      item.category.toLowerCase() === swappingItem.category.toLowerCase() && 
+                      item.id !== swappingItem.id &&
+                      !result.clothingItemIds.includes(item.id) // Exclude items already in this outfit
+                    )
+                    .map(alternativeItem => (
+                      <div
+                        key={alternativeItem.id}
+                        onClick={() => handleReplaceItem(alternativeItem)}
+                        className="flex-shrink-0 w-24 border border-slate-850 hover:border-brand-bronze/60 bg-[#0F172A] p-2 rounded-xl cursor-pointer transition-all flex flex-col items-center shadow-sm hover:shadow-md"
+                      >
+                        <div className="h-16 w-16 overflow-hidden rounded-lg bg-[#0C0F18] relative">
+                          <img
+                            src={alternativeItem.imageUrl}
+                            alt={alternativeItem.category}
+                            className={`h-full w-full ${
+                              ['shoes', 'accessories'].includes(alternativeItem.category.toLowerCase())
+                                ? 'object-contain p-1'
+                                : 'object-cover'
+                            }`}
+                          />
+                        </div>
+                        <span className="text-[9px] text-slate-400 mt-1.5 truncate max-w-full font-mono">
+                          {alternativeItem.subCategory || 'Standard'}
+                        </span>
+                      </div>
+                    ))}
+
+                  {closetItems.filter(item => 
+                    item.category.toLowerCase() === swappingItem.category.toLowerCase() && 
+                    item.id !== swappingItem.id &&
+                    !result.clothingItemIds.includes(item.id)
+                  ).length === 0 && (
+                    <span className="text-[11px] text-slate-500 italic py-3 font-light">
+                      No alternative {swappingItem.category} options in your closet.
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
             <div className="flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-slate-900">
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className="px-4 py-2 border border-slate-800 hover:bg-slate-900 text-[10px] uppercase tracking-widest font-semibold rounded-full text-slate-400 hover:text-slate-200 cursor-pointer"
-                >
-                  Swap Item
-                </button>
                 <button
                   type="button"
                   onClick={onClose}

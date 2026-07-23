@@ -347,6 +347,7 @@ export default function Dashboard() {
       <StyleMeModal
         isOpen={isStyleMeOpen}
         onClose={() => setIsStyleMeOpen(false)}
+        closetItems={items}
         onGenerationSuccess={() => {
           const token = localStorage.getItem('token');
           fetchItems(token);
