@@ -168,6 +168,19 @@ router.delete('/:id', authenticateToken, requireScope('clothing:write'), async (
       });
     }
 
+    // Delete file from Cloudflare R2
+    const publicDomain = process.env.R2_PUBLIC_DOMAIN;
+    const oldKey = item.imageUrl.replace(`${publicDomain}/`, '');
+    
+    try {
+      await r2Client.send(new DeleteObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: oldKey,
+      }));
+    } catch (err) {
+      console.error("Failed to delete item from R2:", err);
+    }
+
     await clothingService.deleteClothingItem(req.params.id, req.user.id);
 
     res.status(200).json({
@@ -193,6 +206,53 @@ router.put('/:id', authenticateToken, requireScope('clothing:write'), validate(u
         status: 'fail',
         message: 'Clothing item not found or unauthorized',
       });
+    }
+
+    // If a new image is being uploaded as a replacement
+    if (req.body.imageUrl && req.body.key) {
+      // 1. Fetch only the first 12 bytes from Cloudflare R2 for verification
+      const getCommand = new GetObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: req.body.key,
+        Range: 'bytes=0-11',
+      });
+
+      const r2Response = await r2Client.send(getCommand);
+      
+      const chunks = [];
+      for await (const chunk of r2Response.Body) {
+        chunks.push(chunk);
+      }
+      const headerBuffer = Buffer.concat(chunks);
+
+      // 2. Validate magic numbers
+      const detectedMimeType = checkImageMagicNumbers(headerBuffer);
+
+      if (!detectedMimeType) {
+        // Security violation: Delete uploaded file immediately
+        await r2Client.send(new DeleteObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: req.body.key,
+        }));
+
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Security Alert: The uploaded file content is not a valid image format.',
+        });
+      }
+
+      // 3. Delete the old image file from R2
+      const publicDomain = process.env.R2_PUBLIC_DOMAIN;
+      const oldKey = item.imageUrl.replace(`${publicDomain}/`, '');
+      
+      try {
+        await r2Client.send(new DeleteObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: oldKey,
+        }));
+      } catch (err) {
+        console.error("Failed to delete old image from R2:", err);
+      }
     }
 
     const updatedItem = await clothingService.updateClothingItem(req.params.id, req.user.id, req.body);

@@ -52,6 +52,8 @@ const updateClothingItemSchema = z.object({
   subCategory: z.string().optional().nullable(),
   primaryColor: z.string().min(1, { message: 'Primary color is required' }),
   aiDescription: z.string().optional().nullable(),
+  imageUrl: z.string().url({ message: 'Invalid image URL' }).optional().nullable(),
+  key: z.string().min(1).optional().nullable(),
 });
 
 const outfitSchema = z.object({

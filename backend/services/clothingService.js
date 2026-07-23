@@ -61,7 +61,7 @@ async function deleteClothingItem(id, userId) {
  * @param {object} updateData 
  * @returns {Promise<object>}
  */
-async function updateClothingItem(id, userId, { category, subCategory, primaryColor, aiDescription }) {
+async function updateClothingItem(id, userId, { category, subCategory, primaryColor, aiDescription, imageUrl }) {
   return await prisma.clothingItem.update({
     where: { id, userId },
     data: {
@@ -69,6 +69,7 @@ async function updateClothingItem(id, userId, { category, subCategory, primaryCo
       subCategory: subCategory !== undefined ? subCategory : undefined,
       primaryColor,
       aiDescription: aiDescription !== undefined ? aiDescription : undefined,
+      imageUrl: imageUrl !== undefined ? imageUrl : undefined,
     },
   });
 }
