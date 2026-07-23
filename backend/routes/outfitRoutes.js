@@ -6,6 +6,7 @@ const { validate, outfitSchema } = require('../middleware/validate');
 const authenticateToken = require('../middleware/authenticateToken');
 const requireScope = require('../middleware/requireScope');
 const llmService = require('../services/llmService');
+const clothingService = require('../services/clothingService');
 const { generateOutfitLimiter } = require('../middleware/rateLimiter');
 
 const generateOutfitSchema = z.object({
@@ -23,10 +24,7 @@ router.post('/generate', authenticateToken, requireScope('outfit:write'), genera
   const userId = req.user.id;
 
   try {
-    // 1. Fetch user's clothing items
-    const clothingItems = await prisma.clothingItem.findMany({
-      where: { userId },
-    });
+    const clothingItems = await clothingService.getClothingItemsByUser(userId);
 
     if (clothingItems.length === 0) {
       return res.status(400).json({
@@ -35,7 +33,6 @@ router.post('/generate', authenticateToken, requireScope('outfit:write'), genera
       });
     }
 
-    // 2. Call LLM Service using Gemini
     const result = await llmService.generateOutfitRecommendations(clothingItems, occasion, weather);
 
     if (result.noNewCombinations) {
@@ -56,7 +53,6 @@ router.post('/generate', authenticateToken, requireScope('outfit:write'), genera
       });
     }
 
-    // 3. Retrieve full clothing item details from memory for previewing
     const selectedItems = clothingItems.filter(item => result.clothingItemIds.includes(item.id));
 
     res.status(200).json({
@@ -69,7 +65,6 @@ router.post('/generate', authenticateToken, requireScope('outfit:write'), genera
         selectedItems
       }
     });
-
   } catch (error) {
     console.error("AI Outfit generation failed:", error);
     const statusCode = error.statusCode || 500;
@@ -90,16 +85,7 @@ router.post('/', authenticateToken, requireScope('outfit:write'), validate(outfi
   const userId = req.user.id;
 
   try {
-    // Verify clothingItemIds exist and belong to the authenticated user (prevents hallucinated IDs)
-    const validClothingItems = await prisma.clothingItem.findMany({
-      where: {
-        id: { in: clothingItemIds },
-        userId,
-      },
-      select: { id: true }
-    });
-
-    const verifiedIds = validClothingItems.map(item => item.id);
+    const verifiedIds = await clothingService.verifyUserClothingItemIds(userId, clothingItemIds);
 
     if (verifiedIds.length === 0) {
       return res.status(400).json({
@@ -127,7 +113,6 @@ router.post('/', authenticateToken, requireScope('outfit:write'), validate(outfi
         data: outfitItemData,
       });
 
-      // Query the full outfit back with items to return
       return await tx.outfit.findUnique({
         where: { id: outfit.id },
         include: {
@@ -236,16 +221,7 @@ router.put('/:id', authenticateToken, requireScope('outfit:write'), validate(out
       });
     }
 
-    // Verify clothingItemIds exist and belong to the authenticated user
-    const validClothingItems = await prisma.clothingItem.findMany({
-      where: {
-        id: { in: clothingItemIds },
-        userId,
-      },
-      select: { id: true }
-    });
-
-    const verifiedIds = validClothingItems.map(item => item.id);
+    const verifiedIds = await clothingService.verifyUserClothingItemIds(userId, clothingItemIds);
 
     if (verifiedIds.length === 0) {
       return res.status(400).json({
@@ -255,7 +231,6 @@ router.put('/:id', authenticateToken, requireScope('outfit:write'), validate(out
     }
 
     const updatedOutfit = await prisma.$transaction(async (tx) => {
-      // 1. Update basic fields
       await tx.outfit.update({
         where: { id },
         data: {
@@ -264,12 +239,10 @@ router.put('/:id', authenticateToken, requireScope('outfit:write'), validate(out
         }
       });
 
-      // 2. Delete old junction records
       await tx.outfitItem.deleteMany({
         where: { outfitId: id }
       });
 
-      // 3. Create new junction records
       const outfitItemData = verifiedIds.map(clothingItemId => ({
         outfitId: id,
         clothingItemId,
@@ -279,7 +252,6 @@ router.put('/:id', authenticateToken, requireScope('outfit:write'), validate(out
         data: outfitItemData,
       });
 
-      // 4. Return updated outfit with item relations
       return await tx.outfit.findUnique({
         where: { id },
         include: {

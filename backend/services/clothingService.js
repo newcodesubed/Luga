@@ -74,10 +74,29 @@ async function updateClothingItem(id, userId, { category, subCategory, primaryCo
   });
 }
 
+/**
+ * Verify that a list of clothing item IDs exist and belong to the user.
+ * @param {string} userId 
+ * @param {Array<string>} itemIds 
+ * @returns {Promise<Array<string>>} Array of verified item IDs
+ */
+async function verifyUserClothingItemIds(userId, itemIds = []) {
+  if (!itemIds || itemIds.length === 0) return [];
+  const validItems = await prisma.clothingItem.findMany({
+    where: {
+      id: { in: itemIds },
+      userId,
+    },
+    select: { id: true }
+  });
+  return validItems.map(item => item.id);
+}
+
 module.exports = {
   createClothingItem,
   getClothingItemsByUser,
   getClothingItemById,
   deleteClothingItem,
   updateClothingItem,
+  verifyUserClothingItemIds,
 };
