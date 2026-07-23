@@ -295,6 +295,10 @@ export default function Dashboard() {
                       <span className="absolute top-3 left-3 bg-slate-950/85 backdrop-blur-sm border border-slate-900 text-[9px] uppercase tracking-widest font-mono text-slate-300 px-2.5 py-1 rounded-full">
                         {item.category}
                       </span>
+                      {/* Top Right Floating Wear Count Badge */}
+                      <div className="absolute top-3 right-3 bg-slate-950/85 backdrop-blur-sm border border-brand-sand/20 text-[9px] font-mono text-brand-sand font-semibold px-2.5 py-1 rounded-full">
+                        Worn {item.wearCount || 0}x
+                      </div>
                     </div>
 
                     {/* Minimal details block */}
