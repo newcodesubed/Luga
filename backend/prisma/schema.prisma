@@ -13,6 +13,7 @@ model User {
   createdAt     DateTime       @default(now()) @map("created_at")
   clothingItems ClothingItem[]
   outfits       Outfit[]
+  dailyLogs     DailyLog[]
 
   @@map("users") // Maps the Prisma model to lowercase_plural database table
 }
@@ -30,6 +31,7 @@ model ClothingItem {
   // Relations
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   outfitItems   OutfitItem[]
+  dailyLogs     DailyLog[]
 
   @@index([userId])
   @@index([userId, category]) // Composite Index for fast lookups
@@ -48,6 +50,7 @@ model Outfit {
   // Relations
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   outfitItems   OutfitItem[]
+  dailyLogs     DailyLog[]
 
   @@index([userId])
   @@map("outfits")
@@ -63,4 +66,23 @@ model OutfitItem {
 
   @@id([outfitId, clothingItemId]) // Composite Primary Key (prevents duplicate items in an outfit)
   @@map("outfit_items")
+}
+
+model DailyLog {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  date      DateTime @db.Date // Stores year-month-day without time offset
+  
+  outfitId  String?  @map("outfit_id")
+  outfit    Outfit?  @relation(fields: [outfitId], references: [id], onDelete: SetNull)
+
+  items     ClothingItem[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("daily_logs")
 }
