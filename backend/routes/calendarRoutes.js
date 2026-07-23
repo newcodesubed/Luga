@@ -134,6 +134,20 @@ router.post('/', authenticateToken, async (req, res, next) => {
         });
       }
 
+      // 4. Increment wear count and update lastWornAt for the Outfit combination if outfitId is provided
+      if (outfitId) {
+        await tx.outfit.updateMany({
+          where: {
+            id: outfitId,
+            userId
+          },
+          data: {
+            wearCount: { increment: 1 },
+            lastWornAt: logDate
+          }
+        });
+      }
+
       return log;
     });
 

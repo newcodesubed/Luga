@@ -109,6 +109,8 @@ export default function Dashboard() {
 
       if (res.ok) {
         showToast("✓ Outfit logged as today's outfit in your calendar!");
+        fetchItems(token);
+        fetchOutfits(token);
       }
     } catch (err) {
       console.error('Error logging outfit today:', err);
@@ -369,9 +371,14 @@ export default function Dashboard() {
                   <div className="flex items-start justify-between">
                     <div>
                       <h4 className="font-serif text-2xl text-brand-sand italic font-normal tracking-wide">{outfit.name}</h4>
-                      <span className="text-[9px] uppercase tracking-widest font-mono text-brand-bronze bg-brand-bronze/10 px-2.5 py-1 rounded-full border border-brand-bronze/20 inline-block mt-3">
-                        {outfit.occasion}
-                      </span>
+                      <div className="flex items-center gap-2 mt-3">
+                        <span className="text-[9px] uppercase tracking-widest font-mono text-brand-bronze bg-brand-bronze/10 px-2.5 py-1 rounded-full border border-brand-bronze/20 inline-block">
+                          {outfit.occasion}
+                        </span>
+                        <span className="text-[9px] font-mono text-brand-sand bg-brand-sand/10 px-2.5 py-1 rounded-full border border-brand-sand/20 inline-block">
+                          Worn {outfit.wearCount || 0}x
+                        </span>
+                      </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <span className="text-[10px] font-mono text-slate-600 uppercase tracking-widest">

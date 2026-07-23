@@ -46,6 +46,8 @@ model Outfit {
   name          String
   occasion      String
   isAiGenerated Boolean      @default(false) @map("is_ai_generated")
+  wearCount     Int          @default(0) @map("wear_count")
+  lastWornAt    DateTime?    @map("last_worn_at")
   createdAt     DateTime     @default(now()) @map("created_at")
   deletedAt     DateTime?    @map("deleted_at") // For Soft Deletes
 
