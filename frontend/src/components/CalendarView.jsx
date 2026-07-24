@@ -9,7 +9,7 @@ const MONTH_NAMES = [
 
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function CalendarView({ outfits = [], closetItems = [] }) {
+export default function CalendarView({ outfits = [], closetItems = [], onLogChange }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -97,6 +97,7 @@ export default function CalendarView({ outfits = [], closetItems = [] }) {
 
       await apiClient.post('/calendar', payload);
       fetchCalendarLogs(year, month);
+      if (onLogChange) onLogChange();
       setIsLogModalOpen(false);
     } catch (err) {
       console.error('Failed to log outfit to calendar:', err);
@@ -109,6 +110,7 @@ export default function CalendarView({ outfits = [], closetItems = [] }) {
     try {
       await apiClient.delete(`/calendar/${logId}`);
       fetchCalendarLogs(year, month);
+      if (onLogChange) onLogChange();
       setIsLogModalOpen(false);
     } catch (err) {
       console.error('Failed to delete calendar log:', err);

@@ -83,23 +83,12 @@ export default function Dashboard() {
   const handleWearOutfitToday = async (outfitId) => {
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // 1. Instant Optimistic UI Update
-    setOutfits(prev => prev.map(o => o.id === outfitId ? { ...o, wearCount: (o.wearCount || 0) + 1, lastWornAt: todayStr } : o));
-
-    const targetOutfit = outfits.find(o => o.id === outfitId);
-    if (targetOutfit && targetOutfit.outfitItems) {
-      const wornIds = targetOutfit.outfitItems.map(oi => oi.clothingItem.id);
-      setItems(prev => prev.map(item => wornIds.includes(item.id) ? { ...item, wearCount: (item.wearCount || 0) + 1, lastWornAt: todayStr } : item));
-    }
-
-    showToast("✓ Outfit logged as today's outfit in your calendar!");
-
-    // 2. Silent API Sync in background
     try {
       await apiClient.post('/calendar', {
         date: todayStr,
         outfitId: outfitId,
       });
+      showToast("✓ Outfit logged as today's outfit in your calendar!");
       fetchItems(true);
       fetchOutfits(true);
     } catch (err) {
@@ -315,7 +304,14 @@ export default function Dashboard() {
 
         {/* 3. OUTFIT CALENDAR LOG VIEW */}
         {currentView === 'calendar' && (
-          <CalendarView outfits={outfits} closetItems={items} />
+          <CalendarView
+            outfits={outfits}
+            closetItems={items}
+            onLogChange={() => {
+              fetchItems(true);
+              fetchOutfits(true);
+            }}
+          />
         )}
       </main>
 
